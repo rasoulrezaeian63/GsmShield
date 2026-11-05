@@ -859,4 +859,8 @@
     <string name="ui_profile_remaining">باقی‌مانده</string>
     <string name="ui_profile_days_left">%1$d روز باقی مانده</string>
     <string name="ui_ended_title">هشدار</string>
+    <string name="ui_free_button">دریافت ۱۰ گیگ رایگان</string>
+    <string name="ui_free_fetching">در حال دریافت کلید، ممکن است کمی طول بکشد…</string>
+    <string name="ui_free_again">قبلاً روی این دستگاه کلید رایگان گرفته‌اید.</string>
+    <string name="ui_free_error">دریافت کلید ناموفق بود. اتصال را بررسی و دوباره تلاش کنید.</string>
 </resources>

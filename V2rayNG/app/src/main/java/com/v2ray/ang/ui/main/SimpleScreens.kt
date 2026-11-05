@@ -53,6 +53,8 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -144,6 +146,10 @@ fun KeyEntryScreen(
 ) {
     val c = uiColors()
     var key by rememberSaveable { mutableStateOf("") }
+    var freeBusy by remember { mutableStateOf(false) }
+    var freeMsg by remember { mutableStateOf<Int?>(null) }
+    val ctx = LocalContext.current
+    val freeScope = rememberCoroutineScope()
     PhonixSystemBars()
 
     Column(
@@ -237,6 +243,32 @@ fun KeyEntryScreen(
                 )
             }
         }
+        Spacer(Modifier.height(12.dp))
+        OutlinedButton(
+            onClick = {
+                freeBusy = true
+                freeMsg = R.string.ui_free_fetching
+                freeScope.launch {
+                    val r = requestFreeTest(ctx)
+                    freeBusy = false
+                    if (r.first != null) {
+                        freeMsg = if (r.second) R.string.ui_free_again else null
+                        onActivate(r.first!!)
+                    } else freeMsg = R.string.ui_free_error
+                }
+            },
+            enabled = !freeBusy && !isLoading,
+            modifier = Modifier.fillMaxWidth().height(56.dp),
+            shape = RoundedCornerShape(28.dp),
+            border = BorderStroke(1.dp, c.accent),
+        ) {
+            if (freeBusy) CircularProgressIndicator(Modifier.size(22.dp), color = c.accent, strokeWidth = 2.dp)
+            else Text(stringResource(R.string.ui_free_button), color = c.accent, fontSize = 17.sp, fontWeight = FontWeight.SemiBold)
+        }
+        freeMsg?.let {
+            Spacer(Modifier.height(8.dp))
+            Text(stringResource(it), color = c.subText, fontSize = 14.sp, textAlign = TextAlign.Center)
+        }
         Spacer(Modifier.height(8.dp))
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -260,6 +292,29 @@ fun KeyEntryScreen(
         }
     }
 }
+
+/** Calls the free-test service. Returns (subscription link or null, alreadyReceived). */
+private suspend fun requestFreeTest(ctx: Context): Pair<String?, Boolean> =
+    kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+        try {
+            val id = android.provider.Settings.Secure.getString(ctx.contentResolver, android.provider.Settings.Secure.ANDROID_ID) ?: "unknown"
+            val conn = java.net.URL(com.v2ray.ang.FreeTestConfig.FREE_TEST_URL).openConnection() as java.net.HttpURLConnection
+            conn.requestMethod = "POST"
+            conn.connectTimeout = 15000
+            conn.readTimeout = 60000
+            conn.doOutput = true
+            conn.setRequestProperty("Content-Type", "application/json")
+            conn.setRequestProperty("X-App-Secret", com.v2ray.ang.FreeTestConfig.APP_SECRET)
+            conn.outputStream.use { it.write("{\"device_id\":\"$id\"}".toByteArray()) }
+            if (conn.responseCode != 200) return@withContext Pair(null, false)
+            val body = conn.inputStream.bufferedReader().readText()
+            val o = org.json.JSONObject(body)
+            val sub = o.optString("sub")
+            if (sub.isEmpty()) Pair(null, false) else Pair(sub, o.optBoolean("again", false))
+        } catch (e: Exception) {
+            Pair(null, false)
+        }
+    }
 
 /** The pages of the second screen, the icons of the bar at the bottom. */
 internal enum class HomeTab { HOME, SERVERS, PROFILE, MENU }
