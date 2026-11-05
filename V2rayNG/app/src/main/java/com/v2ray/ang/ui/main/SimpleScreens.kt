@@ -147,7 +147,7 @@ fun KeyEntryScreen(
     val c = uiColors()
     var key by rememberSaveable { mutableStateOf("") }
     var freeBusy by remember { mutableStateOf(false) }
-    var freeMsg by remember { mutableStateOf<Int?>(null) }
+    var freeMsg by remember { mutableStateOf<String?>(null) }
     val ctx = LocalContext.current
     val freeScope = rememberCoroutineScope()
     PhonixSystemBars()
@@ -247,14 +247,14 @@ fun KeyEntryScreen(
         OutlinedButton(
             onClick = {
                 freeBusy = true
-                freeMsg = R.string.ui_free_fetching
+                freeMsg = ctx.getString(R.string.ui_free_fetching)
                 freeScope.launch {
                     val r = requestFreeTest(ctx)
                     freeBusy = false
                     if (r.first != null) {
-                        freeMsg = if (r.second) R.string.ui_free_again else null
+                        freeMsg = if (r.second) ctx.getString(R.string.ui_free_again) else null
                         onActivate(r.first!!)
-                    } else freeMsg = R.string.ui_free_error
+                    } else freeMsg = ctx.getString(R.string.ui_free_error) + " (" + r.third + ")"
                 }
             },
             enabled = !freeBusy && !isLoading,
@@ -267,7 +267,7 @@ fun KeyEntryScreen(
         }
         freeMsg?.let {
             Spacer(Modifier.height(8.dp))
-            Text(stringResource(it), color = c.subText, fontSize = 14.sp, textAlign = TextAlign.Center)
+            Text(it, color = c.subText, fontSize = 14.sp, textAlign = TextAlign.Center)
         }
         Spacer(Modifier.height(8.dp))
         Row(
@@ -294,7 +294,7 @@ fun KeyEntryScreen(
 }
 
 /** Calls the free-test service. Returns (subscription link or null, alreadyReceived). */
-private suspend fun requestFreeTest(ctx: Context): Pair<String?, Boolean> =
+private suspend fun requestFreeTest(ctx: Context): Triple<String?, Boolean, String> =
     kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
         try {
             val id = android.provider.Settings.Secure.getString(ctx.contentResolver, android.provider.Settings.Secure.ANDROID_ID) ?: "unknown"
@@ -306,13 +306,13 @@ private suspend fun requestFreeTest(ctx: Context): Pair<String?, Boolean> =
             conn.setRequestProperty("Content-Type", "application/json")
             conn.setRequestProperty("X-App-Secret", com.v2ray.ang.FreeTestConfig.APP_SECRET)
             conn.outputStream.use { it.write("{\"device_id\":\"$id\"}".toByteArray()) }
-            if (conn.responseCode != 200) return@withContext Pair(null, false)
+            if (conn.responseCode != 200) return@withContext Triple(null, false, "HTTP " + conn.responseCode)
             val body = conn.inputStream.bufferedReader().readText()
             val o = org.json.JSONObject(body)
             val sub = o.optString("sub")
-            if (sub.isEmpty()) Pair(null, false) else Pair(sub, o.optBoolean("again", false))
+            if (sub.isEmpty()) Triple(null, false, "empty") else Triple(sub, o.optBoolean("again", false), "")
         } catch (e: Exception) {
-            Pair(null, false)
+            Triple(null, false, e.javaClass.simpleName + ": " + (e.message ?: "").take(60))
         }
     }
 
