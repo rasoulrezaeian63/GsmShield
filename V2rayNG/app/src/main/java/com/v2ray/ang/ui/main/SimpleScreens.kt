@@ -284,6 +284,7 @@ internal fun SimpleHomeScreen(
     manualSelection: Boolean,
     downloadSpeed: Long,
     uploadSpeed: Long,
+    pingMs: Long,
     isPersian: Boolean,
     onSelectServer: (String?) -> Unit,
     onToggle: () -> Unit,
@@ -352,7 +353,7 @@ internal fun SimpleHomeScreen(
                     uploadSpeed = uploadSpeed,
                     locationLabel = stringResource(if (manualSelection) R.string.ui_servers_manual else R.string.ui_servers_auto),
                     locationName = servers.firstOrNull { it.guid == selectedGuid }?.name ?: "\u2014",
-                    pingMs = selectedGuid?.let { com.v2ray.ang.handler.MmkvManager.decodeServerAffiliationInfo(it)?.testDelayMillis } ?: 0L,
+                    pingMs = pingMs,
                     onToggle = {
                         // Ended and not renewed: show the popup again, never connect
                         if (ended && !isRunning) showEnded = true else onToggle()

@@ -200,6 +200,23 @@ class MainActivity : HelperBaseComponentActivity() {
             val info = remember(sub) {
                 sub.subscription.usageInfo?.let { buildSubscriptionInfoUiModel(it, System.currentTimeMillis()) }
             }
+            var livePing by remember { mutableStateOf(0L) }
+            LaunchedEffect(uiState.status) {
+                (uiState.status as? MainStatus.ConnectionTest)?.let { livePing = it.result.delayMillis }
+            }
+            LaunchedEffect(uiState.isRunning) {
+                livePing = 0L
+                if (uiState.isRunning) {
+                    var attempt = 0
+                    while (livePing <= 0L && attempt < 6) {
+                        kotlinx.coroutines.delay(if (attempt == 0) 2000L else 4000L)
+                        if (!mainViewModel.uiState.value.isRunning) break
+                        mainViewModel.testCurrentServerRealPing()
+                        attempt++
+                        kotlinx.coroutines.delay(3000L)
+                    }
+                }
+            }
             val statusText = when (val status = uiState.status) {
                 MainStatus.Disconnected -> stringResource(R.string.ui_home_status_disconnected)
                 MainStatus.Connected -> stringResource(R.string.ui_home_status_connected)
@@ -223,6 +240,7 @@ class MainActivity : HelperBaseComponentActivity() {
                 manualSelection = manualGuid != null,
                 downloadSpeed = downloadSpeed,
                 uploadSpeed = uploadSpeed,
+                pingMs = if (uiState.isRunning) livePing else 0L,
                 isPersian = isPersian,
                 onSelectServer = { guid ->
                     // null gives the pick back to the lowest delay; a key is a server chosen by hand
