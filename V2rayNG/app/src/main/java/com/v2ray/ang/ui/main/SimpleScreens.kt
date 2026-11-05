@@ -335,14 +335,7 @@ internal fun SimpleHomeScreen(
             IconButton(onClick = { scope.launch { drawerState.open() } }) {
                 Text("\u2630", color = c.text, fontSize = 26.sp)
             }
-            Box(Modifier.weight(1f), contentAlignment = Alignment.Center) {
-                Image(
-                    painter = painterResource(R.mipmap.ic_launcher_foreground),
-                    contentDescription = null,
-                    modifier = Modifier.height(56.dp).size(56.dp),
-                )
-            }
-            Spacer(Modifier.size(48.dp))
+            Spacer(Modifier.weight(1f))
         }
         Box(Modifier.weight(1f).fillMaxWidth()) {
             when (tab) {
@@ -358,7 +351,10 @@ internal fun SimpleHomeScreen(
                     uploadSpeed = uploadSpeed,
                     locationLabel = stringResource(if (manualSelection) R.string.ui_servers_manual else R.string.ui_servers_auto),
                     locationName = servers.firstOrNull { it.guid == selectedGuid }?.name ?: "\u2014",
-                    onToggle = onToggle,
+                    onToggle = {
+                        // Ended and not renewed: show the popup again, never connect
+                        if (ended && !isRunning) showEnded = true else onToggle()
+                    },
                     onOpenServers = { tabIndex = HomeTab.SERVERS.ordinal },
                 )
 
@@ -451,6 +447,7 @@ private fun ConnectionTab(
     val preparing = setupState == PhonixProvisioner.Setup.PREPARING
     val shownStatus = when {
         isRunning || isScanning || isStarting -> statusText
+        preparing -> stringResource(R.string.ui_setup_fetching)
         setupState == PhonixProvisioner.Setup.READY -> stringResource(R.string.ui_setup_ready)
         setupState == PhonixProvisioner.Setup.FAILED -> stringResource(R.string.ui_setup_failed)
         else -> statusText
@@ -468,6 +465,8 @@ private fun ConnectionTab(
             .padding(horizontal = 20.dp, vertical = 8.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
+        PowerButton(c = c, on = isRunning, busy = isStarting, enabled = !preparing, onClick = onToggle)
+        Spacer(Modifier.height(16.dp))
         Row(verticalAlignment = Alignment.CenterVertically) {
             Box(Modifier.size(12.dp).clip(CircleShape).background(dotColor))
             Spacer(Modifier.size(8.dp))
@@ -484,15 +483,6 @@ private fun ConnectionTab(
             Spacer(Modifier.height(8.dp))
             CircularProgressIndicator(Modifier.size(22.dp), color = c.accent, strokeWidth = 2.dp)
         }
-        Spacer(Modifier.height(20.dp))
-        PowerButton(c = c, on = isRunning, busy = isStarting, enabled = !preparing, onClick = onToggle)
-        Spacer(Modifier.height(16.dp))
-        Text(
-            text = if (isRunning) "VPN" else "VPN",
-            color = c.text,
-            fontSize = 22.sp,
-            fontWeight = FontWeight.ExtraBold,
-        )
         if (ended) {
             Spacer(Modifier.height(10.dp))
             AlertCard(c)
@@ -1009,7 +999,6 @@ private fun BottomNav(c: UiColors, selected: HomeTab, onSelect: (HomeTab) -> Uni
             verticalAlignment = Alignment.CenterVertically,
         ) {
             NavItem(c, R.drawable.ic_nav_home, R.string.ui_nav_home, selected == HomeTab.HOME) { onSelect(HomeTab.HOME) }
-            NavItem(c, R.drawable.ic_nav_servers, R.string.ui_nav_servers, selected == HomeTab.SERVERS) { onSelect(HomeTab.SERVERS) }
             NavItem(c, R.drawable.ic_nav_profile, R.string.ui_nav_profile, selected == HomeTab.PROFILE) { onSelect(HomeTab.PROFILE) }
         }
     }
@@ -1017,12 +1006,21 @@ private fun BottomNav(c: UiColors, selected: HomeTab, onSelect: (HomeTab) -> Uni
 
 @Composable
 private fun NavItem(c: UiColors, icon: Int, label: Int, selected: Boolean, onClick: () -> Unit) {
-    IconButton(onClick = onClick, modifier = Modifier.size(52.dp)) {
+    Column(
+        modifier = Modifier.clip(RoundedCornerShape(14.dp)).clickable(onClick = onClick).padding(horizontal = 20.dp, vertical = 4.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
         Icon(
             painter = painterResource(icon),
             contentDescription = stringResource(label),
             modifier = Modifier.size(26.dp),
             tint = if (selected) c.accent else c.idle,
+        )
+        Text(
+            text = stringResource(label),
+            color = if (selected) c.accent else c.idle,
+            fontSize = 12.sp,
+            fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal,
         )
     }
 }

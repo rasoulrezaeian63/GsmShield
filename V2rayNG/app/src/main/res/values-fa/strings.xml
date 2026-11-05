@@ -820,6 +820,7 @@
     <string name="ui_back">بازگشت</string>
     <string name="ui_settings_open">تنظیمات</string>
     <string name="ui_setup_title">سرورها در حال اضافه شدن</string>
+    <string name="ui_setup_fetching">در حال دریافت سرورها، لطفا منتظر بمانید</string>
     <string name="ui_setup_wait">لطفا کمی صبر کنید</string>
     <string name="ui_setup_ready">برنامه راه‌اندازی شد و آماده اتصال می‌باشد</string>
     <string name="ui_setup_failed">راه‌اندازی کامل نشد. اشتراک را به‌روزرسانی کنید و دوباره تلاش کنید.</string>
@@ -845,9 +846,9 @@
     <string name="ui_phonix_ready">آماده است</string>
     <string name="ui_phonix_getting_keys">در حال دریافت کلید WARP…</string>
     <string name="ui_phonix_variant_next">اتصال برقرار نشد، روش دیگری امتحان می‌شود…</string>
-    <string name="ui_nav_home">اتصال</string>
+    <string name="ui_nav_home">خانه</string>
     <string name="ui_nav_servers">سرورها</string>
-    <string name="ui_nav_profile">پروفایل</string>
+    <string name="ui_nav_profile">حساب کاربری</string>
     <string name="ui_menu_update_app">به‌روزرسانی نرم‌افزار</string>
     <string name="ui_menu_buy_sub">خرید اشتراک</string>
     <string name="ui_nav_menu">منو</string>
