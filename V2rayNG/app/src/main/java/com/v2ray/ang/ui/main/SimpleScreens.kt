@@ -34,6 +34,7 @@ import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.Image
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.foundation.layout.systemBarsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
@@ -351,6 +352,7 @@ internal fun SimpleHomeScreen(
                     uploadSpeed = uploadSpeed,
                     locationLabel = stringResource(if (manualSelection) R.string.ui_servers_manual else R.string.ui_servers_auto),
                     locationName = servers.firstOrNull { it.guid == selectedGuid }?.name ?: "\u2014",
+                    pingMs = selectedGuid?.let { com.v2ray.ang.handler.MmkvManager.decodeServerAffiliationInfo(it)?.testDelayMillis } ?: 0L,
                     onToggle = {
                         // Ended and not renewed: show the popup again, never connect
                         if (ended && !isRunning) showEnded = true else onToggle()
@@ -441,6 +443,7 @@ private fun ConnectionTab(
     uploadSpeed: Long,
     locationLabel: String,
     locationName: String,
+    pingMs: Long,
     onToggle: () -> Unit,
     onOpenServers: () -> Unit,
 ) {
@@ -529,7 +532,7 @@ private fun ConnectionTab(
                 .padding(horizontal = 26.dp, vertical = 8.dp),
         ) {
             Text(
-                text = "\u26A1  " + if (isRunning) "online" else "\u2014 ms",
+                text = "\u26A1  " + if (pingMs > 0L) "$pingMs ms" else "\u2014 ms",
                 color = Color(0xFF14532D),
                 fontSize = 16.sp,
                 fontWeight = FontWeight.Bold,
@@ -824,6 +827,20 @@ private fun ProfileTab(
                 Text(stringResource(R.string.ui_home_update_sub), fontSize = 17.sp, fontWeight = FontWeight.SemiBold)
             }
         }
+        val profileCtx = androidx.compose.ui.platform.LocalContext.current
+        OutlinedButton(
+            onClick = {
+                try {
+                    profileCtx.startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(BUY_SUB_URL)).addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK))
+                } catch (_: Exception) {
+                }
+            },
+            modifier = Modifier.fillMaxWidth().height(54.dp),
+            shape = RoundedCornerShape(27.dp),
+            border = BorderStroke(1.5.dp, c.accent),
+        ) {
+            Text(stringResource(R.string.ui_menu_buy_sub), color = c.accent, fontSize = 17.sp, fontWeight = FontWeight.SemiBold)
+        }
     }
 }
 
@@ -924,22 +941,6 @@ private fun MenuTab(
         ) {
             Text(
                 text = stringResource(R.string.ui_menu_update_app),
-                modifier = Modifier.padding(horizontal = 20.dp, vertical = 18.dp),
-                color = c.text,
-                fontSize = 17.sp,
-                fontWeight = FontWeight.SemiBold,
-            )
-        }
-        Surface(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clip(RoundedCornerShape(24.dp))
-                .clickable { menuContext.startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(BUY_SUB_URL)).addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)) },
-            shape = RoundedCornerShape(24.dp),
-            color = c.card,
-        ) {
-            Text(
-                text = stringResource(R.string.ui_menu_buy_sub),
                 modifier = Modifier.padding(horizontal = 20.dp, vertical = 18.dp),
                 color = c.text,
                 fontSize = 17.sp,
