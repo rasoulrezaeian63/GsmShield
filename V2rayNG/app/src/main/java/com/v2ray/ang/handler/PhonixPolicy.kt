@@ -27,7 +27,7 @@ import java.util.UUID
  */
 object PhonixPolicy {
 
-    const val SUB_DOMAIN = "gsmpasarguard.ir"
+    const val SUB_DOMAIN = "gsmvpfreebot.de"
     const val AETHER_NAME = "Phonix-Aether"
 
     /**
@@ -203,6 +203,17 @@ object PhonixPolicy {
         sub.subscription.usageInfo?.title?.trim().takeUnless { it.isNullOrEmpty() }
             ?: sub.subscription.remarks.trim().ifEmpty { AETHER_NAME }
 
+    /**
+     * The username, taken from the name (the fragment of the link) of the first server of the subscription, like
+     * "(16_mahdiar) ..." gives "16_mahdiar". Null when the name has no such part.
+     */
+    fun usernameOf(sub: SubscriptionCache): String? {
+        val raw = MmkvManager.decodeServerList(sub.guid).firstNotNullOfOrNull { MmkvManager.decodeServerConfig(it)?.remarks }
+            ?: return null
+        val text = try { java.net.URLDecoder.decode(raw, "UTF-8") } catch (e: Exception) { raw }
+        return Regex("\\(([^)]+)\\)").find(text)?.groupValues?.get(1)?.trim()?.takeIf { it.isNotEmpty() }
+    }
+
     /** Names the Aether profile after the subscription [sub]. */
     fun ensureAetherName(sub: SubscriptionCache) {
         val (guid, profile) = findAetherProfile() ?: return
@@ -324,7 +335,7 @@ object PhonixPolicy {
                 if (item.userAgent != SUB_USER_AGENT) { item.userAgent = SUB_USER_AGENT; changed = true }
                 val headers = deviceHeadersJson()
                 if (item.requestHeaders != headers) { item.requestHeaders = headers; changed = true }
-                if (!item.autoUpdate || item.updateInterval != 20L) { item.autoUpdate = true; item.updateInterval = 20L; changed = true }
+                if (!item.autoUpdate || item.updateInterval != 120L) { item.autoUpdate = true; item.updateInterval = 120L; changed = true }
                 if (!item.enabled) { item.enabled = true; changed = true }
                 if (item.remarks.isBlank()) { item.remarks = "Phonix"; changed = true }
             }

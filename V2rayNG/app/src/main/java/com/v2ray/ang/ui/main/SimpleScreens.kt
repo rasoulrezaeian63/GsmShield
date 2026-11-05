@@ -31,6 +31,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.systemBarsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
@@ -107,6 +108,8 @@ internal fun uiColors(): UiColors = UiColors(
 internal fun Modifier.phonixBackground(c: UiColors): Modifier =
     background(Brush.verticalGradient(listOf(c.backgroundTop, c.background)))
 
+private const val BUY_SUB_URL = "https://t.me/GSMVPNFREE_BOT"
+
 private fun Context.findActivity(): Activity? {
     var context = this
     while (context is ContextWrapper) {
@@ -151,7 +154,11 @@ fun KeyEntryScreen(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center,
     ) {
-        Text(text = "\uD83D\uDD11", fontSize = 96.sp)
+        Image(
+            painter = painterResource(R.mipmap.ic_launcher_foreground),
+            contentDescription = null,
+            modifier = Modifier.size(140.dp).clip(RoundedCornerShape(32.dp)),
+        )
         Spacer(Modifier.height(40.dp))
         Text(
             text = stringResource(R.string.ui_key_title),
@@ -283,6 +290,7 @@ internal fun SimpleHomeScreen(
     onLogout: () -> Unit,
 ) {
     val c = uiColors()
+    val ctx = androidx.compose.ui.platform.LocalContext.current
     PhonixSystemBars()
     var tabIndex by rememberSaveable { mutableStateOf(0) }
     val tabs = HomeTab.values()
@@ -357,8 +365,19 @@ internal fun SimpleHomeScreen(
             title = { Text(stringResource(R.string.ui_ended_title)) },
             text = { Text(stringResource(R.string.ui_home_expired)) },
             confirmButton = {
+                TextButton(onClick = {
+                    showEnded = false
+                    try {
+                        ctx.startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(BUY_SUB_URL)).addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK))
+                    } catch (_: Exception) {
+                    }
+                }) {
+                    Text(stringResource(R.string.ui_menu_buy_sub), color = c.accent)
+                }
+            },
+            dismissButton = {
                 TextButton(onClick = { showEnded = false }) {
-                    Text(stringResource(android.R.string.ok), color = c.accent)
+                    Text(stringResource(android.R.string.cancel), color = c.subText)
                 }
             },
         )
@@ -806,22 +825,6 @@ private fun MenuTab(
             fontSize = 22.sp,
             fontWeight = FontWeight.Bold,
         )
-        Surface(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(24.dp), color = c.card) {
-            Column(Modifier.padding(vertical = 12.dp, horizontal = 8.dp)) {
-                Text(
-                    text = stringResource(R.string.ui_settings_language),
-                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
-                    color = c.subText,
-                    fontSize = 14.sp,
-                )
-                ServerRowItem(colors = c, name = "\u0641\u0627\u0631\u0633\u06CC", selected = isPersian) {
-                    if (!isPersian) onSetLanguage("fa")
-                }
-                ServerRowItem(colors = c, name = "English", selected = !isPersian) {
-                    if (isPersian) onSetLanguage("en")
-                }
-            }
-        }
         Surface(
             modifier = Modifier
                 .fillMaxWidth()
@@ -848,6 +851,33 @@ private fun MenuTab(
         }
         val menuContext = androidx.compose.ui.platform.LocalContext.current
         Surface(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(24.dp),
+            color = c.card,
+        ) {
+            Column(Modifier.padding(vertical = 12.dp)) {
+                Text(
+                    text = stringResource(R.string.ui_settings_language),
+                    modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp),
+                    color = c.subText,
+                    fontSize = 14.sp,
+                )
+                listOf("fa" to "فارسی", "en" to "English").forEach { (code, label) ->
+                    val selected = (code == "fa") == isPersian
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { if (!selected) onSetLanguage(code) }
+                            .padding(horizontal = 20.dp, vertical = 12.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Text(text = label, color = c.text, fontSize = 17.sp, modifier = Modifier.weight(1f))
+                        if (selected) Text(text = "✓", color = c.accent, fontSize = 18.sp)
+                    }
+                }
+            }
+        }
+        Surface(
             modifier = Modifier
                 .fillMaxWidth()
                 .clip(RoundedCornerShape(24.dp))
@@ -856,7 +886,7 @@ private fun MenuTab(
                         menuContext.startActivity(
                             android.content.Intent(
                                 android.content.Intent.ACTION_VIEW,
-                                android.net.Uri.parse("https://netlixy.ir/dl/Phonix_universal.apk")
+                                android.net.Uri.parse("https://netlixy.ir/dl/GsmShield.apk")
                             ).addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
                         )
                     } catch (_: Exception) {
@@ -867,6 +897,22 @@ private fun MenuTab(
         ) {
             Text(
                 text = stringResource(R.string.ui_menu_update_app),
+                modifier = Modifier.padding(horizontal = 20.dp, vertical = 18.dp),
+                color = c.text,
+                fontSize = 17.sp,
+                fontWeight = FontWeight.SemiBold,
+            )
+        }
+        Surface(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(24.dp))
+                .clickable { menuContext.startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(BUY_SUB_URL)).addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)) },
+            shape = RoundedCornerShape(24.dp),
+            color = c.card,
+        ) {
+            Text(
+                text = stringResource(R.string.ui_menu_buy_sub),
                 modifier = Modifier.padding(horizontal = 20.dp, vertical = 18.dp),
                 color = c.text,
                 fontSize = 17.sp,

@@ -206,7 +206,7 @@ class MainActivity : HelperBaseComponentActivity() {
                 else -> mainViewModel.formatStatus(status)
             }
             SimpleHomeScreen(
-                title = PhonixPolicy.aetherNameOf(sub),
+                title = PhonixPolicy.usernameOf(sub) ?: PhonixPolicy.aetherNameOf(sub),
                 info = info,
                 statusText = when {
                     scanning -> stringResource(R.string.ui_home_scanning)

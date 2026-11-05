@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name" translatable="false">Phonix</string>
+    <string name="app_name" translatable="false">GsmShield</string>
     <string name="app_widget_name">تعویض</string>
     <string name="app_tile_name">تعویض</string>
     <string name="app_tile_first_use">برای اولین استفاده از این قابلیت، لطفاً ابتدا از داخل برنامه یک سرور اضافه کنید</string>
@@ -665,7 +665,7 @@
     <string name="aether_core_stopped">هسته Aether متوقف شده است</string>
     <string name="aether_core_stopped_no_ech_key">هسته Aether متوقف شد: ECH روشن است ولی هیچ کلید ECH قابل استفاده‌ای پیدا نشد. بدون آن، نام سرور به‌صورت آشکار فرستاده می‌شد.</string>
     <string name="aether_core_stopped_chain_ended">تور یا سایفون درون تونل Aether از کار افتاد، پس اتصال متوقف شد: %1$s</string>
-    <string name="aether_core_connecting">هسته Aether هنوز در حال اتصال است</string>
+    <string name="aether_core_connecting">GsmShield هنوز در حال اتصال است</string>
     <string name="menu_item_import_config_manually_aether">افزودن دستی کانفیگ Aether</string>
     <string name="aether_action_renew_key">دریافت کلیدهای جدید WARP…</string>
     <string name="aether_action_renewing_key">در حال دریافت کلیدهای جدید WARP…</string>
@@ -849,6 +849,7 @@
     <string name="ui_nav_servers">سرورها</string>
     <string name="ui_nav_profile">پروفایل</string>
     <string name="ui_menu_update_app">به‌روزرسانی نرم‌افزار</string>
+    <string name="ui_menu_buy_sub">خرید اشتراک</string>
     <string name="ui_nav_menu">منو</string>
     <string name="ui_home_download">دانلود</string>
     <string name="ui_home_upload">آپلود</string>

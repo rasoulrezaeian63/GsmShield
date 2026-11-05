@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name" translatable="false">Phonix</string>
+    <string name="app_name" translatable="false">GsmShield</string>
     <string name="app_widget_name">Switch</string>
     <string name="app_tile_name">Switch</string>
     <string name="app_tile_first_use">Add a profile in the app before using this feature.</string>
@@ -672,7 +672,7 @@
     <string name="aether_core_stopped">The Aether core stopped running</string>
     <string name="aether_core_stopped_no_ech_key">The Aether core stopped: ECH is on, but no usable ECH key was found. Without one, the server name would have gone out in the clear.</string>
     <string name="aether_core_stopped_chain_ended">Tor or Psiphon inside the Aether tunnel ended, so the connection was stopped: %1$s</string>
-    <string name="aether_core_connecting">The Aether core is still connecting</string>
+    <string name="aether_core_connecting">GsmShield is connecting</string>
     <string name="menu_item_import_config_manually_aether">Add Aether config manually</string>
     <string name="aether_action_renew_key">Get new WARP keys…</string>
     <string name="aether_action_renewing_key">Getting new WARP keys…</string>
@@ -857,6 +857,7 @@
     <string name="ui_nav_servers">Servers</string>
     <string name="ui_nav_profile">Profile</string>
     <string name="ui_menu_update_app">Update software</string>
+    <string name="ui_menu_buy_sub">Buy subscription</string>
     <string name="ui_nav_menu">Menu</string>
     <string name="ui_home_download">Download</string>
     <string name="ui_home_upload">Upload</string>
