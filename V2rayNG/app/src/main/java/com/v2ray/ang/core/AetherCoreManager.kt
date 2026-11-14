@@ -437,15 +437,21 @@ object AetherCoreManager {
                 // Told nothing, the core tries Tor plainly and turns to fetched bridges where Tor is blocked.
                 val bridges = AetherTorBridges.fromString(profile.aetherTorBridges)
                 when (bridges) {
-                    // Webtunnel is the default and mandatory Tor transport unless the profile brings its own lines.
-                    AetherTorBridges.AUTO, AetherTorBridges.FIRST, AetherTorBridges.NEVER ->
-                        WebtunnelBridges.LINES.shuffled().take(12).forEach { addAll(listOf("--tor-bridge", it)) }
+                    AetherTorBridges.AUTO, AetherTorBridges.FIRST, AetherTorBridges.NEVER -> {
+                        if (MmkvManager.decodeSettingsBool(PREF_SHIELD_TUNNEL, false)) {
+                            WebtunnelBridges.LINES.shuffled().take(12).forEach { addAll(listOf("--tor-bridge", it)) }
+                        } else when (bridges) {
+                            AetherTorBridges.FIRST -> add("--tor-bridges")
+                            AetherTorBridges.NEVER -> add("--no-tor-bridges")
+                            else -> Unit
+                        }
+                    }
                     AetherTorBridges.OWN -> AetherFmt.bridgeLines(profile.aetherTorBridgeLines)
                         .mapNotNull { settingValue(it) }
                         .forEach { addAll(listOf("--tor-bridge", it)) }
                 }
                 // Where fetched bridges come from; with the profile's own lines, or none at all, nothing is fetched.
-                if (false) {
+                if (!MmkvManager.decodeSettingsBool(PREF_SHIELD_TUNNEL, false) && (bridges == AetherTorBridges.AUTO || bridges == AetherTorBridges.FIRST)) {
                     AetherTorRelays.fromString(profile.aetherTorRelays).takeUnless { it == AetherTorRelays.AUTO }
                         ?.let { addAll(listOf("--tor-relays", it.type)) }
                 }

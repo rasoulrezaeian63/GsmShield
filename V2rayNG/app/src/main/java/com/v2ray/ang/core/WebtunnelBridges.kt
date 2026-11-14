@@ -2,7 +2,17 @@ package com.v2ray.ang.core
 
 /** Curated webtunnel bridges (from UAC-SNI-Spoofer-Android bridges-webtunnel.txt), used by default for Tor. */
 object WebtunnelBridges {
-    val LINES: List<String> = listOf(
+    val LINES: List<String> get() = RAW.map(::ipv4)
+
+    /** Placeholder 2001:db8 IPv6 -> TEST-NET-1 IPv4 (as UAC does); the real endpoint is url=. */
+    private fun ipv4(l: String): String {
+        val m = Regex("""^webtunnel\s+\[(2001:db8[0-9a-fA-F:]*)\]:(\d+)\s+(.*)$""").matchEntire(l) ?: return l
+        var h = 0
+        (m.groupValues[1] + m.groupValues[3]).lowercase().forEach { h = h * 31 + it.code }
+        return "webtunnel 192.0.2.${(h and 0x7fffffff) % 254 + 1}:${m.groupValues[2]} ${m.groupValues[3]}"
+    }
+
+    private val RAW: List<String> = listOf(
         "webtunnel [2001:db8:63b4:6bd7:a357:7858:898e:718c]:443 059AEB126918A33B8246E8136D565FF57753D5CF url=https://alwaysnewbie.eu.org/homesweethome ver=0.0.2",
         "webtunnel [2001:db8:f7d3:5976:5f99:663b:3ba1:4e3a]:443 05D0531304F2DB161921D6D03CE38DB1CA2332D6 url=https://pod03.oneclickhost.eu/d0NbsV36v0Q4MDdDTs3ZhCCJ ver=0.0.3",
         "webtunnel [2001:db8:8986:42b5:a784:ef30:f5cd:5e26]:443 07C77888D2367C25CA875E2174D9B225140940E9 url=https://nextcloud.privacy-vbox.de/iJmug5bRcsKeVv45h7a0fvkL ver=0.0.3",
