@@ -1,0 +1,347 @@
+diff --git a/aether/Cargo.toml b/aether/Cargo.toml
+index b56cba2..e932a04 100644
+--- a/aether/Cargo.toml
++++ b/aether/Cargo.toml
+@@ -54,7 +54,7 @@ tokio-boring = "5.3"
+ flate2 = "1.1"
+ brotli-decompressor = "5.0.0"
+ zstd = { version = "0.14", default-features = false }
+-arti-client = { version = "0.46", default-features = false, features = ["tokio", "rustls", "compression", "static-sqlite", "bridge-client", "pt-client"], optional = true }
++arti-client = { version = "0.46", default-features = false, features = ["tokio", "rustls", "compression", "static-sqlite", "bridge-client", "pt-client", "geoip"], optional = true }
+ tor-chanmgr = { version = "0.46", optional = true }
+ tor-rtcompat = { version = "0.46", default-features = false, features = ["tokio", "rustls"], optional = true }
+ tokio-util = { version = "0.7", features = ["compat"], optional = true }
+diff --git a/aether/src/bridges.rs b/aether/src/bridges.rs
+index c9bd02b..ec7e428 100644
+--- a/aether/src/bridges.rs
++++ b/aether/src/bridges.rs
+@@ -805,6 +805,80 @@ pub fn address_of(line: &str) -> Option<std::net::SocketAddr> {
+     written.parse().ok()
+ }
+ 
++/// The `url=` a webtunnel bridge line carries. The address written on the line is a
++/// placeholder, so only this URL says where the bridge really is.
++fn webtunnel_url(line: &str) -> Option<String> {
++    line.split_whitespace()
++        .find_map(|word| word.strip_prefix("url="))
++        .map(str::to_string)
++}
++
++/// A live webtunnel bridge answers HTTP 101 to a WebSocket upgrade on its `url=` path.
++async fn webtunnel_answers(line: &str) -> bool {
++    use tokio::io::{AsyncReadExt, AsyncWriteExt};
++
++    let Some(url) = webtunnel_url(line) else {
++        return true;
++    };
++    let (tls, rest) = match url.split_once("://") {
++        Some(("https", rest)) => (true, rest),
++        Some(("http", rest)) => (false, rest),
++        _ => return true,
++    };
++    let (authority, path) = match rest.find('/') {
++        Some(at) => (&rest[..at], &rest[at..]),
++        None => (rest, "/"),
++    };
++    let (host, port) = match authority.rsplit_once(':') {
++        Some((host, port)) if !host.ends_with(']') && port.parse::<u16>().is_ok() => {
++            (host, port.parse::<u16>().unwrap_or(443))
++        }
++        _ => (authority, if tls { 443 } else { 80 }),
++    };
++    let host = host.trim_matches(|c| c == '[' || c == ']').to_string();
++    if host.is_empty() {
++        return true;
++    }
++
++    let request = format!(
++        "GET {path} HTTP/1.1\r\nHost: {host}\r\nUser-Agent: Mozilla/5.0\r\n\
++         Connection: Upgrade\r\nUpgrade: websocket\r\n\
++         Sec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==\r\nSec-WebSocket-Version: 13\r\n\r\n"
++    );
++
++    let attempt = async {
++        let stream = crate::egress::tcp_connect_host(&host, port).await.ok()?;
++        let mut buffer = [0u8; 64];
++        let read = if tls {
++            let mut builder =
++                boring::ssl::SslConnector::builder(boring::ssl::SslMethod::tls()).ok()?;
++            builder.set_verify(boring::ssl::SslVerifyMode::NONE);
++            let mut config = builder.build().configure().ok()?;
++            config.set_verify_hostname(false);
++            let mut stream = tokio_boring::connect(config, &host, stream).await.ok()?;
++            stream.write_all(request.as_bytes()).await.ok()?;
++            stream.read(&mut buffer).await.ok()?
++        } else {
++            let mut stream = stream;
++            stream.write_all(request.as_bytes()).await.ok()?;
++            stream.read(&mut buffer).await.ok()?
++        };
++        let head = String::from_utf8_lossy(&buffer[..read]).to_string();
++        let mut parts = head.split_whitespace();
++        Some(
++            parts
++                .next()
++                .is_some_and(|v| v.to_ascii_uppercase().starts_with("HTTP/"))
++                && parts.next() == Some("101"),
++        )
++    };
++
++    matches!(
++        tokio::time::timeout(Duration::from_secs(5), attempt).await,
++        Ok(Some(true))
++    )
++}
++
+ async fn answers(address: std::net::SocketAddr) -> bool {
+     matches!(
+         tokio::time::timeout(REACH_TIMEOUT, crate::egress::tcp_connect(address)).await,
+@@ -832,14 +906,19 @@ pub async fn keep_reachable(
+         return lines;
+     }
+ 
+-    let mut checks = Vec::new();
++    let mut checks: Vec<Option<std::pin::Pin<Box<dyn std::future::Future<Output = bool> + Send + '_>>>> =
++        Vec::new();
+ 
+     for line in &lines {
++        if transport_of(line).as_deref() == Some("webtunnel") && webtunnel_url(line).is_some() {
++            checks.push(Some(Box::pin(webtunnel_answers(line))));
++            continue;
++        }
+         let skip =
+             transport_of(line).is_some_and(|protocol| UNTESTABLE.contains(&protocol.as_str()));
+ 
+         match address_of(line).filter(|_| !skip) {
+-            Some(address) => checks.push(Some(answers(address))),
++            Some(address) => checks.push(Some(Box::pin(answers(address)))),
+             None => checks.push(None),
+         }
+     }
+diff --git a/aether/src/cli.rs b/aether/src/cli.rs
+index 2349ed3..8f1de51 100644
+--- a/aether/src/cli.rs
++++ b/aether/src/cli.rs
+@@ -242,6 +242,7 @@ Tor:
+                            clients that cannot speak socks5 (off by default)
+   --tor-bridge-file <path> read bridge lines from this file, one per line, the
+                            same shape torrc uses; blank lines and # are skipped
++  --tor-exit <cc>          leave tor from an exit in this country, e.g. DE
+   --tor-relays <what>      running tor relays from onionoo, used as plain
+                            bridges: auto (default, alongside bridgedb), only,
+                            off, or a count such as 80. bridgedb hands out a
+@@ -405,6 +406,7 @@ Environment variables:
+   AETHER_TOR_BIND                  --tor-bind
+   AETHER_TOR_HTTP                  --tor-http
+   AETHER_TOR_BRIDGE_FILE           --tor-bridge-file
++  AETHER_TOR_EXIT                  --tor-exit
+   AETHER_TOR_RELAYS                --tor-relays
+   AETHER_TOR_RELAY_PORTS           --tor-relay-ports
+   AETHER_PSIPHON                   --psiphon (chain), --psiphon-reverse,
+@@ -587,6 +589,7 @@ pub fn parse_args(args: Vec<String>) -> crate::error::Result<Parsed> {
+             "--tor-bridge" => append("AETHER_TOR_BRIDGES", next_value!()),
+             "--tor-bridges" => set("AETHER_TOR_BRIDGES", "auto"),
+             "--tor-bridge-file" => set("AETHER_TOR_BRIDGE_FILE", next_value!()),
++            "--tor-exit" => set("AETHER_TOR_EXIT", next_value!()),
+             "--tor-relays" => set("AETHER_TOR_RELAYS", next_value!()),
+             "--tor-relay-ports" => set("AETHER_TOR_RELAY_PORTS", next_value!()),
+             "--no-tor-bridges" => set("AETHER_TOR_BRIDGES", "off"),
+diff --git a/aether/src/tor.rs b/aether/src/tor.rs
+index 59a414e..b734e67 100644
+--- a/aether/src/tor.rs
++++ b/aether/src/tor.rs
+@@ -777,6 +777,23 @@ mod with_tor {
+     }
+ 
+     /// Binds Tor's http proxy when one is asked for, with --tor-http.
++    /// Stream preferences carrying the exit country from AETHER_TOR_EXIT (e.g. `de`), if any.
++    fn exit_prefs() -> arti_client::StreamPrefs {
++        let mut prefs = arti_client::StreamPrefs::new();
++        let told = std::env::var("AETHER_TOR_EXIT").unwrap_or_default();
++        let told = told.trim();
++        if !told.is_empty() {
++            match told.to_uppercase().parse::<arti_client::CountryCode>() {
++                Ok(code) => {
++                    log::info!("[*] tor: leaving from {}", told.to_uppercase());
++                    prefs.exit_country(code);
++                }
++                Err(_) => log::warn!("[!] tor: {told:?} is not a country code, any exit will do"),
++            }
++        }
++        prefs
++    }
++
+     async fn bind_http() -> Result<Option<TcpListener>> {
+         match http_listen_address() {
+             Some(address) => Ok(Some(
+@@ -792,11 +809,13 @@ mod with_tor {
+         client: Client,
+         kind: &'static str,
+     ) -> Result<()> {
++        let prefs = exit_prefs();
+         let connector = move |host: String, port: u16| {
+             let client = client.clone();
++            let prefs = prefs.clone();
+             async move {
+                 client
+-                    .connect((host.as_str(), port))
++                    .connect_with_prefs((host.as_str(), port), &prefs)
+                     .await
+                     .map(|stream| {
+                         use tokio_util::compat::FuturesAsyncReadCompatExt;
+diff --git a/h2-bench.sh b/h2-bench.sh
+old mode 100755
+new mode 100644
+diff --git a/psiphon-build.sh b/psiphon-build.sh
+old mode 100755
+new mode 100644
+diff --git a/pt-build.sh b/pt-build.sh
+old mode 100755
+new mode 100644
+diff --git a/quiche/apps/run_endpoint.sh b/quiche/apps/run_endpoint.sh
+old mode 100755
+new mode 100644
+diff --git a/quiche/buffer-pool/COPYING b/quiche/buffer-pool/COPYING
+deleted file mode 120000
+index 012065c..0000000
+--- a/quiche/buffer-pool/COPYING
++++ /dev/null
+@@ -1 +0,0 @@
+-../COPYING
+\ No newline at end of file
+diff --git a/quiche/datagram-socket/COPYING b/quiche/datagram-socket/COPYING
+deleted file mode 120000
+index 012065c..0000000
+--- a/quiche/datagram-socket/COPYING
++++ /dev/null
+@@ -1 +0,0 @@
+-../COPYING
+\ No newline at end of file
+diff --git a/quiche/fuzz/mayhem/packet_recv_client/Mayhemfile b/quiche/fuzz/mayhem/packet_recv_client/Mayhemfile
+old mode 100755
+new mode 100644
+diff --git a/quiche/fuzz/mayhem/packet_recv_client/testsuite b/quiche/fuzz/mayhem/packet_recv_client/testsuite
+deleted file mode 120000
+index 064bba7..0000000
+--- a/quiche/fuzz/mayhem/packet_recv_client/testsuite
++++ /dev/null
+@@ -1 +0,0 @@
+-../../corpus/packet_recv_client
+\ No newline at end of file
+diff --git a/quiche/fuzz/mayhem/packet_recv_server/Mayhemfile b/quiche/fuzz/mayhem/packet_recv_server/Mayhemfile
+old mode 100755
+new mode 100644
+diff --git a/quiche/fuzz/mayhem/packet_recv_server/testsuite b/quiche/fuzz/mayhem/packet_recv_server/testsuite
+deleted file mode 120000
+index 4acf030..0000000
+--- a/quiche/fuzz/mayhem/packet_recv_server/testsuite
++++ /dev/null
+@@ -1 +0,0 @@
+-../../corpus/packet_recv_server
+\ No newline at end of file
+diff --git a/quiche/fuzz/mayhem/packets_posths_server/Mayhemfile b/quiche/fuzz/mayhem/packets_posths_server/Mayhemfile
+old mode 100755
+new mode 100644
+diff --git a/quiche/fuzz/mayhem/packets_posths_server/testsuite b/quiche/fuzz/mayhem/packets_posths_server/testsuite
+deleted file mode 120000
+index 06a70fd..0000000
+--- a/quiche/fuzz/mayhem/packets_posths_server/testsuite
++++ /dev/null
+@@ -1 +0,0 @@
+-../../corpus/packets_posths_server
+\ No newline at end of file
+diff --git a/quiche/fuzz/mayhem/packets_recv_server/Mayhemfile b/quiche/fuzz/mayhem/packets_recv_server/Mayhemfile
+old mode 100755
+new mode 100644
+diff --git a/quiche/fuzz/mayhem/packets_recv_server/testsuite b/quiche/fuzz/mayhem/packets_recv_server/testsuite
+deleted file mode 120000
+index a5a6345..0000000
+--- a/quiche/fuzz/mayhem/packets_recv_server/testsuite
++++ /dev/null
+@@ -1 +0,0 @@
+-../../corpus/packets_recv_server
+\ No newline at end of file
+diff --git a/quiche/fuzz/mayhem/qpack_decode/Mayhemfile b/quiche/fuzz/mayhem/qpack_decode/Mayhemfile
+old mode 100755
+new mode 100644
+diff --git a/quiche/fuzz/mayhem/qpack_decode/testsuite b/quiche/fuzz/mayhem/qpack_decode/testsuite
+deleted file mode 120000
+index 55f28bc..0000000
+--- a/quiche/fuzz/mayhem/qpack_decode/testsuite
++++ /dev/null
+@@ -1 +0,0 @@
+-../../corpus/qpack_decode
+\ No newline at end of file
+diff --git a/quiche/h3i/COPYING b/quiche/h3i/COPYING
+deleted file mode 120000
+index 012065c..0000000
+--- a/quiche/h3i/COPYING
++++ /dev/null
+@@ -1 +0,0 @@
+-../COPYING
+\ No newline at end of file
+diff --git a/quiche/netlog/COPYING b/quiche/netlog/COPYING
+deleted file mode 120000
+index 012065c..0000000
+--- a/quiche/netlog/COPYING
++++ /dev/null
+@@ -1 +0,0 @@
+-../COPYING
+\ No newline at end of file
+diff --git a/quiche/octets/COPYING b/quiche/octets/COPYING
+deleted file mode 120000
+index 012065c..0000000
+--- a/quiche/octets/COPYING
++++ /dev/null
+@@ -1 +0,0 @@
+-../COPYING
+\ No newline at end of file
+diff --git a/quiche/qlog/COPYING b/quiche/qlog/COPYING
+deleted file mode 120000
+index 012065c..0000000
+--- a/quiche/qlog/COPYING
++++ /dev/null
+@@ -1 +0,0 @@
+-../COPYING
+\ No newline at end of file
+diff --git a/quiche/quiche/COPYING b/quiche/quiche/COPYING
+deleted file mode 120000
+index 012065c..0000000
+--- a/quiche/quiche/COPYING
++++ /dev/null
+@@ -1 +0,0 @@
+-../COPYING
+\ No newline at end of file
+diff --git a/quiche/quiche/README.md b/quiche/quiche/README.md
+deleted file mode 120000
+index 32d46ee..0000000
+--- a/quiche/quiche/README.md
++++ /dev/null
+@@ -1 +0,0 @@
+-../README.md
+\ No newline at end of file
+diff --git a/quiche/quiche/examples/gen-certs.sh b/quiche/quiche/examples/gen-certs.sh
+old mode 100755
+new mode 100644
+diff --git a/quiche/task-killswitch/COPYING b/quiche/task-killswitch/COPYING
+deleted file mode 120000
+index 012065c..0000000
+--- a/quiche/task-killswitch/COPYING
++++ /dev/null
+@@ -1 +0,0 @@
+-../COPYING
+\ No newline at end of file
+diff --git a/quiche/tokio-quiche/COPYING b/quiche/tokio-quiche/COPYING
+deleted file mode 120000
+index 012065c..0000000
+--- a/quiche/tokio-quiche/COPYING
++++ /dev/null
+@@ -1 +0,0 @@
+-../COPYING
+\ No newline at end of file
+diff --git a/quiche/tools/android/build_android_ndk19.sh b/quiche/tools/android/build_android_ndk19.sh
+old mode 100755
+new mode 100644
+diff --git a/quiche/tools/gen_fuzz_seeds.sh b/quiche/tools/gen_fuzz_seeds.sh
+old mode 100755
+new mode 100644

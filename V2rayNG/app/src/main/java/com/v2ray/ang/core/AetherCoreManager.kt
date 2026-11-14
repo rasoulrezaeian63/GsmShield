@@ -439,7 +439,7 @@ object AetherCoreManager {
                 when (bridges) {
                     // Webtunnel is the default and mandatory Tor transport unless the profile brings its own lines.
                     AetherTorBridges.AUTO, AetherTorBridges.FIRST, AetherTorBridges.NEVER ->
-                        WebtunnelBridges.LINES.forEach { addAll(listOf("--tor-bridge", it)) }
+                        WebtunnelBridges.LINES.shuffled().take(12).forEach { addAll(listOf("--tor-bridge", it)) }
                     AetherTorBridges.OWN -> AetherFmt.bridgeLines(profile.aetherTorBridgeLines)
                         .mapNotNull { settingValue(it) }
                         .forEach { addAll(listOf("--tor-bridge", it)) }

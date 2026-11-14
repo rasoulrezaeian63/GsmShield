@@ -871,5 +871,5 @@
     <string name="ui_free_fetching">Getting your key, this may take a while…</string>
     <string name="ui_free_again">You already received a free key on this device.</string>
     <string name="ui_free_error">Could not get the key. Check your connection and try again.</string>
-    <string name="ui_shield_tunnel">Shield Tunnel (Tor + webtunnel)</string>
+    <string name="ui_shield_tunnel">Shield Tunnel</string>
 </resources>

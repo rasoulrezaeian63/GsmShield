@@ -751,6 +751,7 @@ private fun ServersTab(
                 .verticalScroll(rememberScrollState())
                 .padding(8.dp),
         ) {
+            var shield by remember { mutableStateOf(MmkvManager.decodeSettingsBool(com.v2ray.ang.core.AetherCoreManager.PREF_SHIELD_TUNNEL, false)) }
             if (servers.isEmpty()) {
                 Text(
                     text = stringResource(R.string.ui_servers_empty),
@@ -760,29 +761,37 @@ private fun ServersTab(
                 )
             } else {
                 if (query.isBlank()) {
-                    var shield by remember { mutableStateOf(MmkvManager.decodeSettingsBool(com.v2ray.ang.core.AetherCoreManager.PREF_SHIELD_TUNNEL, false)) }
                     ServerRowItem(
                         colors = c,
                         name = stringResource(R.string.ui_shield_tunnel),
                         selected = shield,
                         onClick = {
-                            shield = !shield
-                            MmkvManager.encodeSettings(com.v2ray.ang.core.AetherCoreManager.PREF_SHIELD_TUNNEL, shield)
+                            shield = true
+                            MmkvManager.encodeSettings(com.v2ray.ang.core.AetherCoreManager.PREF_SHIELD_TUNNEL, true)
+                            onSelect(null)
                         },
                     )
                     ServerRowItem(
                         colors = c,
                         name = stringResource(R.string.ui_servers_auto),
-                        selected = !manualSelection,
-                        onClick = { onSelect(null) },
+                        selected = !manualSelection && !shield,
+                        onClick = {
+                            shield = false
+                            MmkvManager.encodeSettings(com.v2ray.ang.core.AetherCoreManager.PREF_SHIELD_TUNNEL, false)
+                            onSelect(null)
+                        },
                     )
                 }
                 servers.filter { it.name.contains(query.trim(), ignoreCase = true) }.forEach { server ->
                     ServerRowItem(
                         colors = c,
                         name = server.name,
-                        selected = manualSelection && server.guid == selectedGuid,
-                        onClick = { onSelect(server.guid) },
+                        selected = manualSelection && !shield && server.guid == selectedGuid,
+                        onClick = {
+                            shield = false
+                            MmkvManager.encodeSettings(com.v2ray.ang.core.AetherCoreManager.PREF_SHIELD_TUNNEL, false)
+                            onSelect(server.guid)
+                        },
                     )
                 }
             }

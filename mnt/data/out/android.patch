@@ -1,0 +1,169 @@
+diff --git a/V2rayNG/app/src/main/java/com/v2ray/ang/core/AetherCoreManager.kt b/V2rayNG/app/src/main/java/com/v2ray/ang/core/AetherCoreManager.kt
+index 9bcb10a..487b770 100644
+--- a/V2rayNG/app/src/main/java/com/v2ray/ang/core/AetherCoreManager.kt
++++ b/V2rayNG/app/src/main/java/com/v2ray/ang/core/AetherCoreManager.kt
+@@ -430,20 +430,22 @@ object AetherCoreManager {
+                 // Told nothing, the core tries Tor plainly and turns to fetched bridges where Tor is blocked.
+                 val bridges = AetherTorBridges.fromString(profile.aetherTorBridges)
+                 when (bridges) {
+-                    AetherTorBridges.AUTO -> Unit
+-                    AetherTorBridges.FIRST -> add("--tor-bridges")
+-                    AetherTorBridges.NEVER -> add("--no-tor-bridges")
++                    // Webtunnel is the default and mandatory Tor transport unless the profile brings its own lines.
++                    AetherTorBridges.AUTO, AetherTorBridges.FIRST, AetherTorBridges.NEVER ->
++                        WebtunnelBridges.LINES.forEach { addAll(listOf("--tor-bridge", it)) }
+                     AetherTorBridges.OWN -> AetherFmt.bridgeLines(profile.aetherTorBridgeLines)
+                         .mapNotNull { settingValue(it) }
+                         .forEach { addAll(listOf("--tor-bridge", it)) }
+                 }
+                 // Where fetched bridges come from; with the profile's own lines, or none at all, nothing is fetched.
+-                if (bridges == AetherTorBridges.AUTO || bridges == AetherTorBridges.FIRST) {
++                if (false) {
+                     AetherTorRelays.fromString(profile.aetherTorRelays).takeUnless { it == AetherTorRelays.AUTO }
+                         ?.let { addAll(listOf("--tor-relays", it.type)) }
+                 }
+             }
+ 
++            if (tor != AetherTor.OFF) settingValue(profile.aetherTorExit)?.let { addAll(listOf("--tor-exit", it)) }
++
+             when (psiphon) {
+                 AetherPsiphon.OFF -> Unit
+                 AetherPsiphon.CHAIN -> add("--psiphon")
+diff --git a/V2rayNG/app/src/main/java/com/v2ray/ang/dto/entities/ProfileItem.kt b/V2rayNG/app/src/main/java/com/v2ray/ang/dto/entities/ProfileItem.kt
+index 58a883c..c7fcc5c 100644
+--- a/V2rayNG/app/src/main/java/com/v2ray/ang/dto/entities/ProfileItem.kt
++++ b/V2rayNG/app/src/main/java/com/v2ray/ang/dto/entities/ProfileItem.kt
+@@ -160,6 +160,8 @@ data class ProfileItem(
+ 
+     /** Where Tor's fetched bridges come from, an AetherTorRelays type; null means bridgedb and the public relays. */
+     var aetherTorRelays: String? = null,
++    /** Country (two letters) Tor leaves from; null means any. */
++    var aetherTorExit: String? = null,
+ 
+     /** The command line of this profile's core, written by hand in place of the one built from the settings; null follows the settings. */
+     var aetherCommand: String? = null,
+diff --git a/V2rayNG/app/src/main/java/com/v2ray/ang/fmt/AetherFmt.kt b/V2rayNG/app/src/main/java/com/v2ray/ang/fmt/AetherFmt.kt
+index 7675609..70b94fc 100644
+--- a/V2rayNG/app/src/main/java/com/v2ray/ang/fmt/AetherFmt.kt
++++ b/V2rayNG/app/src/main/java/com/v2ray/ang/fmt/AetherFmt.kt
+@@ -87,6 +87,7 @@ object AetherFmt : FmtBase() {
+         config.aetherTorBridges = queryParam["tor_bridges"]?.let { AetherTorBridges.fromString(it).type }
+         config.aetherTorBridgeLines = queryParam["bridges"]?.split(';')?.joinToString("\n")
+         config.aetherTorRelays = queryParam["tor_relays"]?.let { AetherTorRelays.fromString(it).type }
++        config.aetherTorExit = queryParam["tor_exit"]
+         // The exit-node's, under the names the link of an ordinary profile gives its own outbound's.
+         config.finalMask = queryParam["fm"]
+         config.dialMode = queryParam["dialMode"]
+@@ -168,6 +169,7 @@ object AetherFmt : FmtBase() {
+             query["tor"] = tor.type
+             query["tor_bridges"] = AetherTorBridges.fromString(config.aetherTorBridges).type
+             query["tor_relays"] = AetherTorRelays.fromString(config.aetherTorRelays).type
++            config.aetherTorExit?.takeIf { it.isNotBlank() }?.let { query["tor_exit"] = it }
+             // Bridge lines never hold a semicolon: the core itself separates them with one.
+             bridgeLines(config.aetherTorBridgeLines).takeIf { it.isNotEmpty() }?.let { query["bridges"] = it.joinToString(";") }
+         }
+@@ -391,6 +393,7 @@ object AetherFmt : FmtBase() {
+             config.aetherTorBridges = null
+             config.aetherTorBridgeLines = null
+             config.aetherTorRelays = null
++            config.aetherTorExit = null
+             return null
+         }
+         // Tor carries TCP alone and WARP's WireGuard endpoints answer on UDP; the core refuses the pair. WireGuard over
+@@ -412,6 +415,7 @@ object AetherFmt : FmtBase() {
+         config.aetherTorBridges = bridges.type
+         config.aetherTorBridgeLines = lines.takeIf { bridges == AetherTorBridges.OWN }?.joinToString("\n")
+         config.aetherTorRelays = AetherTorRelays.fromString(config.aetherTorRelays).type
++        config.aetherTorExit = config.aetherTorExit?.trim()?.uppercase(Locale.ROOT)?.takeIf { it.length == 2 }
+         return null
+     }
+ 
+diff --git a/V2rayNG/app/src/main/java/com/v2ray/ang/handler/AngConfigManager.kt b/V2rayNG/app/src/main/java/com/v2ray/ang/handler/AngConfigManager.kt
+index ed666ac..0f9c7f4 100644
+--- a/V2rayNG/app/src/main/java/com/v2ray/ang/handler/AngConfigManager.kt
++++ b/V2rayNG/app/src/main/java/com/v2ray/ang/handler/AngConfigManager.kt
+@@ -13,6 +13,7 @@ import com.v2ray.ang.dto.entities.SubscriptionCache
+ import com.v2ray.ang.dto.entities.SubscriptionItem
+ import com.v2ray.ang.dto.entities.SubscriptionUsageInfo
+ import com.v2ray.ang.enums.EConfigType
++import com.v2ray.ang.enums.AetherTor
+ import com.v2ray.ang.extension.isNotNullEmpty
+ import com.v2ray.ang.fmt.AetherFmt
+ import com.v2ray.ang.fmt.CustomFmt
+@@ -281,6 +282,10 @@ object AngConfigManager {
+                     } else {
+                         val config = parseConfig(it, subid, subItem)
+                         if (config != null) {
++                            // Shield tunnel (Tor) is on by default for imported Aether profiles.
++                            if (config.configType == EConfigType.AETHER && config.aetherTor.isNullOrEmpty()) {
++                                config.aetherTor = AetherTor.ONLY.type
++                            }
+                             configs.add(config)
+                         }
+                     }
+diff --git a/V2rayNG/app/src/main/java/com/v2ray/ang/ui/main/SimpleScreens.kt b/V2rayNG/app/src/main/java/com/v2ray/ang/ui/main/SimpleScreens.kt
+index 546305a..030010e 100644
+--- a/V2rayNG/app/src/main/java/com/v2ray/ang/ui/main/SimpleScreens.kt
++++ b/V2rayNG/app/src/main/java/com/v2ray/ang/ui/main/SimpleScreens.kt
+@@ -633,7 +633,7 @@ private fun SpeedCard(c: UiColors, icon: Int, label: String, bytesPerSecond: Lon
+ /** The big round power button with a purple-to-blue ring, as in the reference design. */
+ @Composable
+ private fun PowerButton(c: UiColors, on: Boolean, busy: Boolean, enabled: Boolean, onClick: () -> Unit) {
+-    val ring = Brush.linearGradient(listOf(Color(0xFFC03DFF), Color(0xFF3D8BFF)))
++    val ring = Brush.linearGradient(listOf(Color(0xFF2ECC71), Color(0xFF1FA85A)))
+     Box(contentAlignment = Alignment.Center, modifier = Modifier.size(250.dp)) {
+         Box(Modifier.size(250.dp).clip(CircleShape).background(c.accent.copy(alpha = 0.06f)))
+         Box(Modifier.size(210.dp).clip(CircleShape).background(c.accent.copy(alpha = 0.09f)))
+@@ -657,7 +657,7 @@ private fun PowerButton(c: UiColors, on: Boolean, busy: Boolean, enabled: Boolea
+                         painter = painterResource(R.drawable.ic_power_24dp),
+                         contentDescription = null,
+                         modifier = Modifier.size(72.dp),
+-                        tint = Color.White,
++                        tint = if (on) Color(0xFF2ECC71) else Color.White,
+                     )
+                 }
+             }
+diff --git a/V2rayNG/app/src/main/java/com/v2ray/ang/ui/server/ServerUiState.kt b/V2rayNG/app/src/main/java/com/v2ray/ang/ui/server/ServerUiState.kt
+index d4035d3..e0c2f00 100644
+--- a/V2rayNG/app/src/main/java/com/v2ray/ang/ui/server/ServerUiState.kt
++++ b/V2rayNG/app/src/main/java/com/v2ray/ang/ui/server/ServerUiState.kt
+@@ -3,6 +3,7 @@ package com.v2ray.ang.ui.server
+ import androidx.compose.runtime.getValue
+ import androidx.compose.runtime.mutableStateOf
+ import androidx.compose.runtime.saveable.Saver
++import java.util.Locale
+ import androidx.compose.runtime.setValue
+ import com.v2ray.ang.AppConfig.AETHER_ECH_DNS
+ import com.v2ray.ang.AppConfig.AETHER_ECH_DOMAIN
+@@ -115,6 +116,7 @@ class ServerUiState(
+     aetherTorBridges: String = AetherTorBridges.AUTO.type,
+     aetherTorBridgeLines: String = "",
+     aetherTorRelays: String = AetherTorRelays.AUTO.type,
++    aetherTorExit: String = "",
+     aetherCommand: String = ""
+ ) {
+     var configType by mutableStateOf(configType)
+@@ -211,6 +213,7 @@ class ServerUiState(
+     var aetherTorBridges by mutableStateOf(aetherTorBridges)
+     var aetherTorBridgeLines by mutableStateOf(aetherTorBridgeLines)
+     var aetherTorRelays by mutableStateOf(aetherTorRelays)
++    var aetherTorExit by mutableStateOf(aetherTorExit)
+     var aetherCommand by mutableStateOf(aetherCommand)
+ 
+     /**
+@@ -356,6 +359,7 @@ class ServerUiState(
+             aetherTorBridges = if (isTor) aetherTorBridges else null,
+             aetherTorBridgeLines = if (isTor) aetherTorBridgeLines.nullIfBlank() else null,
+             aetherTorRelays = if (isTor) aetherTorRelays else null,
++            aetherTorExit = if (isTor) aetherTorExit.trim().uppercase(Locale.ROOT).nullIfBlank() else null,
+             aetherCommand = null,
+         )
+         // A command that says what the settings say is no command of its own: the profile follows the settings.
+@@ -461,6 +465,7 @@ class ServerUiState(
+                 aetherTorBridges = AetherTorBridges.fromString(initialConfig.aetherTorBridges).type,
+                 aetherTorBridgeLines = initialConfig.aetherTorBridgeLines ?: "",
+                 aetherTorRelays = AetherTorRelays.fromString(initialConfig.aetherTorRelays).type,
++                aetherTorExit = initialConfig.aetherTorExit ?: "",
+                 aetherCommand = initialConfig.aetherCommand ?: ""
+             )
+ 
