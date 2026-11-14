@@ -1713,6 +1713,8 @@ object AetherCoreManager {
             appendLine("SocksPort $listener")
             appendLine("SafeLogging 1")
             appendLine("Log notice stdout")
+            appendLine("Log notice file ${File(dir, "tor.log").absolutePath}")
+            appendLine("CacheDirectory ${File(dir, "cache").absolutePath}")
             appendLine("LearnCircuitBuildTimeout 1")
             appendLine("CircuitBuildTimeout 30")
             appendLine("KeepalivePeriod 60")
@@ -1726,8 +1728,11 @@ object AetherCoreManager {
             bridges.forEach { appendLine("Bridge $it") }
         })
         File(dir, "data").mkdirs()
+        File(dir, "cache").mkdirs()
+        File(dir, "tor.log").delete()
         val builder = ProcessBuilder(tor.absolutePath, "-f", rc.absolutePath, "--ignore-missing-torrc",
-            "--DataDirectory", File(dir, "data").absolutePath)
+            "--DataDirectory", File(dir, "data").absolutePath,
+            "--CacheDirectory", File(dir, "cache").absolutePath)
             .directory(dir)
             .redirectErrorStream(true)
         builder.environment()["HOME"] = dir.absolutePath
