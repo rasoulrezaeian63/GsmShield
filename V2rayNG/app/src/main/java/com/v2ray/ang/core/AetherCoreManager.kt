@@ -1680,7 +1680,11 @@ object AetherCoreManager {
         if (session !== target) return
         reapStale(context, listenerAddressOf(arguments))
         val process = try {
-            startProcess(context, arguments, markSession = true, exitKey = exitKey)
+            if (MmkvManager.decodeSettingsBool(PREF_SHIELD_TUNNEL, false) && "--tor-only" in arguments) {
+                startShieldTor(context, arguments)
+            } else {
+                startProcess(context, arguments, markSession = true, exitKey = exitKey)
+            }
         } catch (e: IOException) {
             LogUtil.e(AppConfig.TAG, "AetherCore: failed to launch the core", e)
             if (release(target)) target.onExit()
@@ -1689,6 +1693,48 @@ object AetherCoreManager {
         target.process = process
         thread(name = "aether-core-output", isDaemon = true) { watch(target, process) }
     }
+
+    /** Shield Tunnel: classic Tor (libtor.so) over webtunnel bridges (libwebtunnel.so), serving SOCKS on the core's listener. */
+    private fun startShieldTor(context: Context, arguments: List<String>): Process {
+        val lib = context.applicationInfo.nativeLibraryDir
+        val tor = File(lib, "libtor.so")
+        val plugin = File(lib, "libwebtunnel.so")
+        if (!tor.canExecute() || !plugin.canExecute()) throw IOException("libtor.so or libwebtunnel.so is missing")
+        val listener = listenerAddressOf(arguments) ?: "127.0.0.1:${DEFAULT_SHIELD_PORT}"
+        val dir = File(context.filesDir, "shield-tor").apply { mkdirs() }
+        val rc = File(dir, "torrc")
+        val bridges = WebtunnelBridges.LINES.shuffled().take(12)
+        rc.writeText(buildString {
+            appendLine("DataDirectory ${File(dir, "data").absolutePath}")
+            appendLine("RunAsDaemon 0")
+            appendLine("ClientOnly 1")
+            appendLine("AvoidDiskWrites 0")
+            appendLine("SocksPort $listener")
+            appendLine("SafeLogging 1")
+            appendLine("Log notice stdout")
+            appendLine("LearnCircuitBuildTimeout 1")
+            appendLine("CircuitBuildTimeout 30")
+            appendLine("KeepalivePeriod 60")
+            appendLine("FetchDirInfoEarly 1")
+            appendLine("FetchDirInfoExtraEarly 1")
+            appendLine("UseBridges 1")
+            appendLine("UpdateBridgesFromAuthority 0")
+            appendLine("AssumeReachable 1")
+            appendLine("ClientUseIPv6 0")
+            appendLine("ClientTransportPlugin webtunnel exec ${plugin.absolutePath}")
+            bridges.forEach { appendLine("Bridge $it") }
+        })
+        File(dir, "data").mkdirs()
+        val builder = ProcessBuilder(tor.absolutePath, "-f", rc.absolutePath, "--ignore-missing-torrc",
+            "--DataDirectory", File(dir, "data").absolutePath)
+            .directory(dir)
+            .redirectErrorStream(true)
+        builder.environment()["HOME"] = dir.absolutePath
+        builder.environment()["TMPDIR"] = context.cacheDir.absolutePath
+        return builder.start()
+    }
+
+    private const val DEFAULT_SHIELD_PORT = 1819
 
     private fun forward(process: Process, source: String, onOutput: (String) -> Unit, output: Channel<String>) {
         try {
