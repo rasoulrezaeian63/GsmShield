@@ -202,6 +202,7 @@ object MmkvManager {
      * @param guid The server GUID.
      */
     fun setSelectServer(guid: String) {
+        encodeSettings("pref_shield_tunnel", false)
         withProfileIndexLock {
             mainStorage.encode(KEY_SELECTED_SERVER, guid)
         }
