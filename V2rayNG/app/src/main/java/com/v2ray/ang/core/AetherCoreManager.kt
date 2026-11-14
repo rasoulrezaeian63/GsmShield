@@ -998,7 +998,7 @@ object AetherCoreManager {
         val next = Session(
             core.port,
             arguments,
-            needsWord = readyNeedsWord(arguments) && showsInfo(arguments),
+            needsWord = readyNeedsWord(arguments) && (showsInfo(arguments) || aloneOf(arguments) == TOR_NAME),
             context = appContext,
             onExit = onExit,
         )
@@ -1014,12 +1014,13 @@ object AetherCoreManager {
      */
     internal fun readyNeedsWord(arguments: List<String>): Boolean = when (aloneOf(arguments)) {
         PSIPHON_NAME -> true
-        TOR_NAME -> false
+        TOR_NAME -> MmkvManager.decodeSettingsBool(PREF_SHIELD_TUNNEL, false)
         else -> psiphonModeOf(arguments) == AetherPsiphon.CHAIN
     }
 
     /** True when [line] is the core's word that the listener the app dials carries traffic now. */
-    internal fun isReadyWord(line: String): Boolean = psiphonReady.containsMatchIn(line)
+    internal fun isReadyWord(line: String): Boolean =
+        psiphonReady.containsMatchIn(line) || line.contains("Bootstrapped 100%")
 
     /** True when [line] is the core's word that it stopped for want of an ECH key; see [noEchKey]. */
     internal fun isNoEchKeyWord(line: String): Boolean = noEchKey.containsMatchIn(line)
