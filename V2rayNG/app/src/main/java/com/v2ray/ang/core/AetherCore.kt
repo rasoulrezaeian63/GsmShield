@@ -237,7 +237,7 @@ data class AetherCore(val arguments: List<String>, val exit: AetherExit = Aether
             return if (arguments != null) {
                 AetherCoreManager.leavesThroughWarp(arguments)
             } else {
-                AetherCoreManager.leavesThroughWarp(AetherTor.fromString(profile.aetherTor), AetherPsiphon.fromString(profile.aetherPsiphon))
+                AetherCoreManager.leavesThroughWarp(AetherCoreManager.effectiveTor(profile), AetherPsiphon.fromString(profile.aetherPsiphon))
             }
         }
 

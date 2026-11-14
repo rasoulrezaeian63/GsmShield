@@ -272,7 +272,7 @@ object AetherCoreManager {
      * [buildArguments]. Opens a socket to find one.
      */
     fun scanPort(profile: ProfileItem): Int =
-        if (AetherTor.fromString(profile.aetherTor) == AetherTor.REVERSE) Utils.findRandomFreePort() else 0
+        if (effectiveTor(profile) == AetherTor.REVERSE) Utils.findRandomFreePort() else 0
 
     /**
      * Whether a tunnel over MASQUE runs over HTTP/2: chosen so, or dialled through Tor or Psiphon around it, which carry
@@ -315,6 +315,13 @@ object AetherCoreManager {
      * own wherever the app looks options up word by word: a link carrying dns=--upstream would leave the core
      * without the upstream the app gives it, so that it dialled out around Xray.
      */
+    const val PREF_SHIELD_TUNNEL = "pref_shield_tunnel"
+    const val PREF_SHIELD_EXIT = "pref_shield_exit"
+
+    /** Shield Tunnel on: Tor only (with webtunnel bridges), whatever the profile says. */
+    fun effectiveTor(profile: ProfileItem): AetherTor =
+        if (MmkvManager.decodeSettingsBool(PREF_SHIELD_TUNNEL, false)) AetherTor.ONLY else AetherTor.fromString(profile.aetherTor)
+
     private fun settingValue(value: String?): String? = value?.trim()?.takeUnless { it.isEmpty() || it.startsWith('-') }
 
     fun buildArguments(
@@ -326,7 +333,7 @@ object AetherCoreManager {
         val protocol = AetherProtocol.fromString(profile.aetherProtocol)
         // A scan looks for WARP endpoints from where the session will look: a carrier around the tunnel
         // stays, since the session reaches WARP from its exit, while one inside the tunnel has no part in it.
-        val tor = AetherTor.fromString(profile.aetherTor).takeUnless { scan && it != AetherTor.REVERSE } ?: AetherTor.OFF
+        val tor = effectiveTor(profile).takeUnless { scan && it != AetherTor.REVERSE } ?: AetherTor.OFF
         val psiphon = AetherPsiphon.fromString(profile.aetherPsiphon).takeUnless { scan && it != AetherPsiphon.REVERSE } ?: AetherPsiphon.OFF
         // The listener the app dials takes [port]: Psiphon's or Tor's when one of them runs inside the
         // tunnel and is what the app reaches, the tunnel's own otherwise. Every other listener takes the
@@ -444,7 +451,7 @@ object AetherCoreManager {
                 }
             }
 
-            if (tor != AetherTor.OFF) settingValue(profile.aetherTorExit)?.let { addAll(listOf("--tor-exit", it)) }
+            if (tor != AetherTor.OFF) (settingValue(MmkvManager.decodeSettingsString(PREF_SHIELD_EXIT)?.takeIf { MmkvManager.decodeSettingsBool(PREF_SHIELD_TUNNEL, false) }) ?: settingValue(profile.aetherTorExit))?.let { addAll(listOf("--tor-exit", it)) }
 
             when (psiphon) {
                 AetherPsiphon.OFF -> Unit

@@ -26,6 +26,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import com.v2ray.ang.handler.MmkvManager
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -759,6 +760,16 @@ private fun ServersTab(
                 )
             } else {
                 if (query.isBlank()) {
+                    var shield by remember { mutableStateOf(MmkvManager.decodeSettingsBool(com.v2ray.ang.core.AetherCoreManager.PREF_SHIELD_TUNNEL, false)) }
+                    ServerRowItem(
+                        colors = c,
+                        name = stringResource(R.string.ui_shield_tunnel),
+                        selected = shield,
+                        onClick = {
+                            shield = !shield
+                            MmkvManager.encodeSettings(com.v2ray.ang.core.AetherCoreManager.PREF_SHIELD_TUNNEL, shield)
+                        },
+                    )
                     ServerRowItem(
                         colors = c,
                         name = stringResource(R.string.ui_servers_auto),
