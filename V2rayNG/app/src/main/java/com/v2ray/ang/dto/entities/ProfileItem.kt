@@ -160,6 +160,8 @@ data class ProfileItem(
 
     /** Where Tor's fetched bridges come from, an AetherTorRelays type; null means bridgedb and the public relays. */
     var aetherTorRelays: String? = null,
+    /** Country (two letters) Tor leaves from; null means any. */
+    var aetherTorExit: String? = null,
 
     /** The command line of this profile's core, written by hand in place of the one built from the settings; null follows the settings. */
     var aetherCommand: String? = null,

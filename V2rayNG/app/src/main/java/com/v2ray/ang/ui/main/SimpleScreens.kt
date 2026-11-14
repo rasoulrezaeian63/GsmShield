@@ -633,7 +633,7 @@ private fun SpeedCard(c: UiColors, icon: Int, label: String, bytesPerSecond: Lon
 /** The big round power button with a purple-to-blue ring, as in the reference design. */
 @Composable
 private fun PowerButton(c: UiColors, on: Boolean, busy: Boolean, enabled: Boolean, onClick: () -> Unit) {
-    val ring = Brush.linearGradient(listOf(Color(0xFFC03DFF), Color(0xFF3D8BFF)))
+    val ring = Brush.linearGradient(listOf(Color(0xFF2ECC71), Color(0xFF1FA85A)))
     Box(contentAlignment = Alignment.Center, modifier = Modifier.size(250.dp)) {
         Box(Modifier.size(250.dp).clip(CircleShape).background(c.accent.copy(alpha = 0.06f)))
         Box(Modifier.size(210.dp).clip(CircleShape).background(c.accent.copy(alpha = 0.09f)))
@@ -657,7 +657,7 @@ private fun PowerButton(c: UiColors, on: Boolean, busy: Boolean, enabled: Boolea
                         painter = painterResource(R.drawable.ic_power_24dp),
                         contentDescription = null,
                         modifier = Modifier.size(72.dp),
-                        tint = Color.White,
+                        tint = if (on) Color(0xFF2ECC71) else Color.White,
                     )
                 }
             }

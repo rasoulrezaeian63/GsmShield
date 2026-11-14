@@ -3,6 +3,7 @@ package com.v2ray.ang.ui.server
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.Saver
+import java.util.Locale
 import androidx.compose.runtime.setValue
 import com.v2ray.ang.AppConfig.AETHER_ECH_DNS
 import com.v2ray.ang.AppConfig.AETHER_ECH_DOMAIN
@@ -115,6 +116,7 @@ class ServerUiState(
     aetherTorBridges: String = AetherTorBridges.AUTO.type,
     aetherTorBridgeLines: String = "",
     aetherTorRelays: String = AetherTorRelays.AUTO.type,
+    aetherTorExit: String = "",
     aetherCommand: String = ""
 ) {
     var configType by mutableStateOf(configType)
@@ -211,6 +213,7 @@ class ServerUiState(
     var aetherTorBridges by mutableStateOf(aetherTorBridges)
     var aetherTorBridgeLines by mutableStateOf(aetherTorBridgeLines)
     var aetherTorRelays by mutableStateOf(aetherTorRelays)
+    var aetherTorExit by mutableStateOf(aetherTorExit)
     var aetherCommand by mutableStateOf(aetherCommand)
 
     /**
@@ -356,6 +359,7 @@ class ServerUiState(
             aetherTorBridges = if (isTor) aetherTorBridges else null,
             aetherTorBridgeLines = if (isTor) aetherTorBridgeLines.nullIfBlank() else null,
             aetherTorRelays = if (isTor) aetherTorRelays else null,
+            aetherTorExit = if (isTor) aetherTorExit.trim().uppercase(Locale.ROOT).nullIfBlank() else null,
             aetherCommand = null,
         )
         // A command that says what the settings say is no command of its own: the profile follows the settings.
@@ -461,6 +465,7 @@ class ServerUiState(
                 aetherTorBridges = AetherTorBridges.fromString(initialConfig.aetherTorBridges).type,
                 aetherTorBridgeLines = initialConfig.aetherTorBridgeLines ?: "",
                 aetherTorRelays = AetherTorRelays.fromString(initialConfig.aetherTorRelays).type,
+                aetherTorExit = initialConfig.aetherTorExit ?: "",
                 aetherCommand = initialConfig.aetherCommand ?: ""
             )
 

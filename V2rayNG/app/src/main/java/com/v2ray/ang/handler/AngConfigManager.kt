@@ -13,6 +13,7 @@ import com.v2ray.ang.dto.entities.SubscriptionCache
 import com.v2ray.ang.dto.entities.SubscriptionItem
 import com.v2ray.ang.dto.entities.SubscriptionUsageInfo
 import com.v2ray.ang.enums.EConfigType
+import com.v2ray.ang.enums.AetherTor
 import com.v2ray.ang.extension.isNotNullEmpty
 import com.v2ray.ang.fmt.AetherFmt
 import com.v2ray.ang.fmt.CustomFmt
@@ -281,6 +282,10 @@ object AngConfigManager {
                     } else {
                         val config = parseConfig(it, subid, subItem)
                         if (config != null) {
+                            // Shield tunnel (Tor) is on by default for imported Aether profiles.
+                            if (config.configType == EConfigType.AETHER && config.aetherTor.isNullOrEmpty()) {
+                                config.aetherTor = AetherTor.ONLY.type
+                            }
                             configs.add(config)
                         }
                     }

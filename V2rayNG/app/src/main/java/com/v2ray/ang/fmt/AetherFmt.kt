@@ -87,6 +87,7 @@ object AetherFmt : FmtBase() {
         config.aetherTorBridges = queryParam["tor_bridges"]?.let { AetherTorBridges.fromString(it).type }
         config.aetherTorBridgeLines = queryParam["bridges"]?.split(';')?.joinToString("\n")
         config.aetherTorRelays = queryParam["tor_relays"]?.let { AetherTorRelays.fromString(it).type }
+        config.aetherTorExit = queryParam["tor_exit"]
         // The exit-node's, under the names the link of an ordinary profile gives its own outbound's.
         config.finalMask = queryParam["fm"]
         config.dialMode = queryParam["dialMode"]
@@ -168,6 +169,7 @@ object AetherFmt : FmtBase() {
             query["tor"] = tor.type
             query["tor_bridges"] = AetherTorBridges.fromString(config.aetherTorBridges).type
             query["tor_relays"] = AetherTorRelays.fromString(config.aetherTorRelays).type
+            config.aetherTorExit?.takeIf { it.isNotBlank() }?.let { query["tor_exit"] = it }
             // Bridge lines never hold a semicolon: the core itself separates them with one.
             bridgeLines(config.aetherTorBridgeLines).takeIf { it.isNotEmpty() }?.let { query["bridges"] = it.joinToString(";") }
         }
@@ -391,6 +393,7 @@ object AetherFmt : FmtBase() {
             config.aetherTorBridges = null
             config.aetherTorBridgeLines = null
             config.aetherTorRelays = null
+            config.aetherTorExit = null
             return null
         }
         // Tor carries TCP alone and WARP's WireGuard endpoints answer on UDP; the core refuses the pair. WireGuard over
@@ -412,6 +415,7 @@ object AetherFmt : FmtBase() {
         config.aetherTorBridges = bridges.type
         config.aetherTorBridgeLines = lines.takeIf { bridges == AetherTorBridges.OWN }?.joinToString("\n")
         config.aetherTorRelays = AetherTorRelays.fromString(config.aetherTorRelays).type
+        config.aetherTorExit = config.aetherTorExit?.trim()?.uppercase(Locale.ROOT)?.takeIf { it.length == 2 }
         return null
     }
 
