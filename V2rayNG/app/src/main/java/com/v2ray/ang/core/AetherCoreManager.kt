@@ -1736,6 +1736,7 @@ object AetherCoreManager {
             .directory(dir)
             .redirectErrorStream(true)
         builder.environment()["HOME"] = dir.absolutePath
+        builder.environment()["LD_LIBRARY_PATH"] = lib
         builder.environment()["TMPDIR"] = context.cacheDir.absolutePath
         return builder.start()
     }
