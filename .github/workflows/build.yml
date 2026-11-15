@@ -213,7 +213,7 @@ jobs:
           entries=$(unzip -Z1 "$apk" | grep '^lib/' || true)
           for abi in arm64-v8a armeabi-v7a x86_64; do
             echo "$entries" | grep -q "^lib/$abi/" || continue
-            for lib in libaether.so libpsiphon-tunnel-core.so liblyrebird.so; do
+            for lib in libaether.so libpsiphon-tunnel-core.so liblyrebird.so libtor.so libwebtunnel.so; do
               echo "$entries" | grep -qx "lib/$abi/$lib" || { echo "::error::$(basename "$apk") lacks lib/$abi/$lib"; status=1; }
             done
           done
