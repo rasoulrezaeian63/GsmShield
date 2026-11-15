@@ -1688,6 +1688,7 @@ object AetherCoreManager {
             }
         } catch (e: IOException) {
             LogUtil.e(AppConfig.TAG, "AetherCore: failed to launch the core", e)
+            target.chainEnd = "launch failed: ${e.message}".take(300)
             if (release(target)) target.onExit()
             return
         }
@@ -1700,7 +1701,7 @@ object AetherCoreManager {
         val lib = context.applicationInfo.nativeLibraryDir
         val tor = File(lib, "libtor.so")
         val plugin = File(lib, "libwebtunnel.so")
-        if (!tor.canExecute() || !plugin.canExecute()) throw IOException("libtor.so or libwebtunnel.so is missing")
+        if (!tor.exists() || !plugin.exists()) throw IOException("libtor.so/libwebtunnel.so missing in $lib: " + (File(lib).list()?.joinToString(",") ?: "?"))
         val listener = listenerAddressOf(arguments) ?: "127.0.0.1:${DEFAULT_SHIELD_PORT}"
         val dir = File(context.filesDir, "shield-tor").apply { mkdirs() }
         val rc = File(dir, "torrc")
