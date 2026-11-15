@@ -1761,6 +1761,7 @@ object AetherCoreManager {
         try {
             process.inputStream.bufferedReader().forEachLine { line ->
                 relay(line, "aether")
+                if (line.isNotBlank()) target.lastLine = line.trim().takeLast(160)
                 if (!target.wordSeen && isReadyWord(line)) target.wordSeen = true
                 if (isNoEchKeyWord(line)) target.noEchKey = true
                 // A core the app stopped, or one a new start replaced, is no longer the session's to end.
@@ -1778,6 +1779,12 @@ object AetherCoreManager {
             LogUtil.d(AppConfig.TAG, "AetherCore: output closed: ${e.message}")
         }
         val exitCode = process.waitFor()
+        if (target.chainEnd == null && MmkvManager.decodeSettingsBool(PREF_SHIELD_TUNNEL, false) && "--tor-only" in target.arguments) {
+            val tail = try {
+                File(File(target.context.filesDir, "shield-tor"), "tor.log").readLines().takeLast(3).joinToString(" | ")
+            } catch (e: Exception) { "" }
+            target.chainEnd = "tor exit $exitCode: " + (tail.ifBlank { target.lastLine ?: "no output" }).takeLast(300)
+        }
         if (!release(target)) return
         reapOrphans(target.context)
         if (target.chainEnd != null) {
@@ -1818,6 +1825,9 @@ object AetherCoreManager {
         /** Whether the core said it stopped for want of an ECH key. */
         @Volatile
         var noEchKey: Boolean = false
+
+        @Volatile
+        var lastLine: String? = null
 
         /** The core's words that Tor or Psiphon inside the tunnel had ended, for which the app ended it; see [chainEndWords]. */
         @Volatile
