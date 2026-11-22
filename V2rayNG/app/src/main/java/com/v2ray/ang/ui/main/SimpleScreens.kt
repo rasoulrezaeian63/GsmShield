@@ -634,6 +634,19 @@ private fun SpeedCard(c: UiColors, icon: Int, label: String, bytesPerSecond: Lon
 @Composable
 private fun PowerButton(c: UiColors, on: Boolean, busy: Boolean, enabled: Boolean, onClick: () -> Unit) {
     val ring = Brush.linearGradient(listOf(Color(0xFFC03DFF), Color(0xFF3D8BFF)))
+    val progress = remember { androidx.compose.animation.core.Animatable(0f) }
+    LaunchedEffect(busy, on) {
+        when {
+            // Connecting: climb slowly towards 90% and wait there until the ping succeeds.
+            busy && !on -> progress.animateTo(0.9f, androidx.compose.animation.core.tween(25_000, easing = androidx.compose.animation.core.LinearOutSlowInEasing))
+            on -> {
+                progress.animateTo(1f, androidx.compose.animation.core.tween(400))
+                kotlinx.coroutines.delay(1200)
+                progress.snapTo(0f)
+            }
+            else -> progress.snapTo(0f)
+        }
+    }
     Box(contentAlignment = Alignment.Center, modifier = Modifier.size(250.dp)) {
         Box(Modifier.size(250.dp).clip(CircleShape).background(c.accent.copy(alpha = 0.06f)))
         Box(Modifier.size(210.dp).clip(CircleShape).background(c.accent.copy(alpha = 0.09f)))
@@ -650,8 +663,15 @@ private fun PowerButton(c: UiColors, on: Boolean, busy: Boolean, enabled: Boolea
                 modifier = Modifier.size(156.dp).clip(CircleShape).background(Color(0xFF14123A)),
                 contentAlignment = Alignment.Center,
             ) {
-                if (busy) {
-                    CircularProgressIndicator(Modifier.size(60.dp), color = Color.White, strokeWidth = 4.dp)
+                if (busy || progress.value > 0f) {
+                    CircularProgressIndicator(
+                        progress = { progress.value },
+                        modifier = Modifier.size(110.dp),
+                        color = if (on) Color(0xFF22C55E) else Color.White,
+                        trackColor = Color.White.copy(alpha = 0.15f),
+                        strokeWidth = 6.dp,
+                    )
+                    Text("${(progress.value * 100).toInt()}%", color = Color.White, fontSize = 22.sp, fontWeight = FontWeight.Bold)
                 } else {
                     Icon(
                         painter = painterResource(R.drawable.ic_power_24dp),

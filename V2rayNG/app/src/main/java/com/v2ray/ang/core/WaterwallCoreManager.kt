@@ -89,10 +89,21 @@ object WaterwallCoreManager {
             // No arguments: the core reads core.json from the working dir, exactly as verified by hand in Termux.
             // The nativeLibraryDir file is not marked executable on every ROM; harmless when it already is.
             binary.setExecutable(true, false)
-            val started = ProcessBuilder(binary.absolutePath)
+            // On boot the core inspects/cleans iptables NAT chains. Without root that never succeeds and
+            // netd holds the xtables lock, so it stalls for tens of seconds. This tunnel never uses
+            // iptables, so shadow the tools with no-op stubs ("not installed"/empty tables) via PATH.
+            val stubs = File(dir, "stubs").apply { mkdirs() }
+            for (tool in listOf("iptables", "ip6tables", "iptables-save", "ip6tables-save", "iptables-restore", "ip6tables-restore")) {
+                File(stubs, tool).apply {
+                    writeText("#!/system/bin/sh\nexit 0\n")
+                    setExecutable(true, false)
+                }
+            }
+            val builder = ProcessBuilder(binary.absolutePath)
                 .directory(dir)
                 .redirectErrorStream(true)
-                .start()
+            builder.environment()["PATH"] = stubs.absolutePath + ":" + (System.getenv("PATH") ?: "/system/bin")
+            val started = builder.start()
             process = started
             // Drain the output: an unread pipe would stall the core, and its first lines say why it failed.
             Thread({
@@ -123,7 +134,7 @@ object WaterwallCoreManager {
     }
 
     /** Polls [isListening] until the core answers or [budgetMs] runs out. */
-    fun awaitListening(budgetMs: Long = 10_000L): Boolean {
+    fun awaitListening(budgetMs: Long = 30_000L): Boolean {
         val deadline = System.currentTimeMillis() + budgetMs
         while (System.currentTimeMillis() < deadline) {
             if (isListening()) return true
