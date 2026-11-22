@@ -245,6 +245,8 @@ object PhonixPolicy {
         MmkvManager.decodeServerList("")
             .mapNotNull { guid -> MmkvManager.decodeServerConfig(guid)?.let { guid to it } }
             .filter { (_, profile) -> com.v2ray.ang.core.WaterwallCoreManager.isWatray(profile) }
+            // once the wat.txt list is fetched, only its servers are shown (not the bundled default)
+            .filter { (_, profile) -> !com.v2ray.ang.handler.WatrayUpdater.hasRemote() || profile.remarks.trim() != com.v2ray.ang.core.WaterwallCoreManager.NAME }
 
     private const val PREF_MANUAL_SERVER = "phonix_manual_server"
 

@@ -156,6 +156,20 @@ object WaterwallCoreManager {
     private val serverAddressRegex = Regex("\"server_address\"\\s*:\\s*\"([^\"]+)\"")
     private val lastKnownIp = java.util.concurrent.ConcurrentHashMap<String, String>()
 
+    private fun lookup(host: String): String? = try {
+        val all = java.net.InetAddress.getAllByName(host)
+        (all.firstOrNull { it is java.net.Inet4Address } ?: all.firstOrNull())?.hostAddress
+    } catch (e: Exception) {
+        LogUtil.w(AppConfig.TAG, "Waterwall: cannot resolve $host: ${e.message}")
+        null
+    }
+
+    /** Resolves [host] in the background so the next start finds its IP in the cache and does not wait. */
+    fun prewarm(host: String) {
+        if (host.isBlank() || host.all { it.isDigit() || it == '.' || it == ':' }) return
+        Thread({ lookup(host)?.let { lastKnownIp[host] = it } }, "waterwall-prewarm").apply { isDaemon = true }.start()
+    }
+
     /**
      * The core's own resolver (c-ares) finds no DNS servers on Android: there is no resolv.conf, and it never asks
      * the system ("Could not contact DNS servers"), unlike in Termux which ships one. So the server name is resolved
@@ -167,19 +181,21 @@ object WaterwallCoreManager {
             val text = configFile.readText()
             val host = serverAddressRegex.find(text)?.groupValues?.get(1) ?: return
             if (host.all { it.isDigit() || it == '.' || it == ':' }) return
+            // This runs on the main thread of the service (same process as the UI): a long wait freezes the screen and
+            // the connect ring with it. So a known IP is used at once and refreshed in the background; only a cold
+            // start waits, and briefly.
+            val cached = lastKnownIp[host]
+            if (cached != null) {
+                prewarm(host)
+            }
             var ip: String? = null
-            // Off the calling thread: a lookup on the main thread is refused by Android, and must not hang the start.
-            val worker = Thread({
-                try {
-                    val all = java.net.InetAddress.getAllByName(host)
-                    ip = (all.firstOrNull { it is java.net.Inet4Address } ?: all.firstOrNull())?.hostAddress
-                } catch (e: Exception) {
-                    LogUtil.w(AppConfig.TAG, "Waterwall: cannot resolve $host: ${e.message}")
-                }
-            }, "waterwall-resolve").apply { isDaemon = true }
-            worker.start()
-            worker.join(8_000)
-            val resolved = ip?.also { lastKnownIp[host] = it } ?: lastKnownIp[host]
+            if (cached == null) {
+                val worker = Thread({ ip = lookup(host) }, "waterwall-resolve").apply { isDaemon = true }
+                worker.start()
+                worker.join(3_000)
+                if (ip != null) lastKnownIp[host] = ip!!
+            }
+            val resolved = ip ?: cached ?: lastKnownIp[host]
             if (resolved == null) {
                 LogUtil.w(AppConfig.TAG, "Waterwall: no IP for $host, leaving the name to the core")
                 return

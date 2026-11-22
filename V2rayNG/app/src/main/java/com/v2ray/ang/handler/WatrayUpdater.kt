@@ -80,6 +80,8 @@ object WatrayUpdater {
         }
     }
 
+    fun hasRemote(): Boolean = !MmkvManager.decodeSettingsString(PREF_SERVERS).isNullOrBlank()
+
     /** The server entry for a profile name, or null for the bundled default. */
     fun serverFor(remarks: String): JSONObject? = try {
         MmkvManager.decodeSettingsString(PREF_SERVERS)?.let { JSONObject(it).optJSONObject(remarks.trim()) }

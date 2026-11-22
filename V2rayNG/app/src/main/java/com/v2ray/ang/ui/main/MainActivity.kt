@@ -217,6 +217,7 @@ class MainActivity : HelperBaseComponentActivity() {
                                     val j = com.v2ray.ang.handler.WatrayUpdater.serverFor(r.name)
                                     host = j?.optString("address").orEmpty().ifEmpty { "watnl.netlixo.ir" }
                                     port = j?.optInt("rtmp_port", 1935) ?: 1935
+                                    com.v2ray.ang.core.WaterwallCoreManager.prewarm(host)
                                 }
                                 val ms = if (host.isBlank() || port <= 0) -1L
                                 else com.v2ray.ang.handler.SpeedtestManager.socketConnectTime(host, port, 3000)
@@ -226,6 +227,9 @@ class MainActivity : HelperBaseComponentActivity() {
                         }
                     }
                     latencies = result
+                    if (manualGuid == null && !uiState.isRunning) {
+                        result.filter { it.value > 0 }.minByOrNull { it.value }?.key?.let { setSelectServer(it) }
+                    }
                 }
             }
             LaunchedEffect(servers) { refreshLatency() }

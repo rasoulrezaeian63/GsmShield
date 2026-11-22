@@ -3,6 +3,7 @@ package com.v2ray.ang.ui.main
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.border
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.heightIn
 import androidx.core.view.WindowCompat
@@ -544,7 +545,6 @@ private fun ConnectionTab(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .verticalScroll(rememberScrollState())
             .padding(horizontal = 20.dp, vertical = 8.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
@@ -596,7 +596,7 @@ private fun ConnectionTab(
                 fontWeight = FontWeight.Bold,
             )
         }
-        Spacer(Modifier.height(16.dp))
+        Spacer(Modifier.weight(1f))
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(14.dp)) {
             SpeedCard(c, R.drawable.ic_arrow_up_24dp, stringResource(R.string.ui_home_upload), uploadSpeed, Modifier.weight(1f))
             SpeedCard(c, R.drawable.ic_arrow_down_24dp, stringResource(R.string.ui_home_download), downloadSpeed, Modifier.weight(1f))
@@ -630,7 +630,27 @@ private fun ServerDropdown(
         color = c.card,
         shadowElevation = 4.dp,
     ) {
-        Column(Modifier.padding(horizontal = 14.dp, vertical = 12.dp)) {
+        Column(Modifier.padding(horizontal = 14.dp, vertical = 12.dp).animateContentSize()) {
+            if (open) {
+                                // Update servers: subscription link + Watray list
+                Box(
+                    modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp))
+                        .background(c.accent.copy(alpha = 0.18f))
+                        .border(BorderStroke(1.dp, c.accent), RoundedCornerShape(16.dp))
+                        .clickable { onUpdate() }.padding(vertical = 10.dp),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Text("\u21BB  " + stringResource(R.string.ui_servers_update), color = c.text, fontSize = 15.sp, fontWeight = FontWeight.Bold)
+                }
+                Spacer(Modifier.height(8.dp))
+                Column(Modifier.heightIn(max = 460.dp).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    ServerRowItem(c, stringResource(R.string.ui_servers_auto), !manualSelection, null) { onSelect(null); open = false }
+                    servers.forEach { sv ->
+                        ServerRowItem(c, sv.name, manualSelection && sv.guid == selectedGuid, latencies[sv.guid]) { onSelect(sv.guid); open = false }
+                    }
+                }
+                Spacer(Modifier.height(10.dp))
+            }
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Box(Modifier.size(38.dp).clip(CircleShape).background(c.inner), contentAlignment = Alignment.Center) {
                     Text("\uD83C\uDF10", fontSize = 19.sp)
@@ -642,26 +662,7 @@ private fun ServerDropdown(
                 }
                 Text(text = if (open) "\u2303" else "\u2304", color = c.text, fontSize = 22.sp)
             }
-            if (open) {
-                Spacer(Modifier.height(10.dp))
-                // Update servers: subscription link + Watray list
-                Box(
-                    modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp))
-                        .background(c.accent.copy(alpha = 0.18f))
-                        .border(BorderStroke(1.dp, c.accent), RoundedCornerShape(16.dp))
-                        .clickable { onUpdate() }.padding(vertical = 10.dp),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Text("\u21BB  " + stringResource(R.string.ui_servers_update), color = c.text, fontSize = 15.sp, fontWeight = FontWeight.Bold)
-                }
-                Spacer(Modifier.height(8.dp))
-                Column(Modifier.heightIn(max = 320.dp).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    ServerRowItem(c, stringResource(R.string.ui_servers_auto), !manualSelection, null) { onSelect(null); open = false }
-                    servers.forEach { sv ->
-                        ServerRowItem(c, sv.name, manualSelection && sv.guid == selectedGuid, latencies[sv.guid]) { onSelect(sv.guid); open = false }
-                    }
-                }
-            }
+
         }
     }
 }

@@ -835,7 +835,7 @@
     <string name="ui_setup_failed">Setup did not finish. Update the subscription and try again.</string>
 
     <string name="ui_servers_title">Servers</string>
-    <string name="ui_servers_auto">Automatic (random)</string>
+    <string name="ui_servers_auto">Smart Connect</string>
     <string name="ui_servers_test">Test ping</string>
     <string name="ui_servers_testing">Testing…</string>
     <string name="ui_servers_timeout">Failed</string>

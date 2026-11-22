@@ -826,7 +826,7 @@
     <string name="ui_setup_failed">راه‌اندازی کامل نشد. اشتراک را به‌روزرسانی کنید و دوباره تلاش کنید.</string>
 
     <string name="ui_servers_title">سرورها</string>
-    <string name="ui_servers_auto">خودکار (تصادفی)</string>
+    <string name="ui_servers_auto">انتخاب هوشمند</string>
     <string name="ui_servers_test">تست پینگ</string>
     <string name="ui_servers_testing">در حال تست…</string>
     <string name="ui_servers_timeout">ناموفق</string>
