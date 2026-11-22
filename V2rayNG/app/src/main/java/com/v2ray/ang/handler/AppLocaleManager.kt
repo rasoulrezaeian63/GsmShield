@@ -29,7 +29,7 @@ object AppLocaleManager {
         }
     }
 
-    private const val PREF_PERSIAN_APPLIED = "phonix_persian_default_applied"
+    private const val PREF_PERSIAN_APPLIED = "phonix_english_default_applied"
 
     /**
      * Phonix: the app starts in Persian, once, whatever language an earlier install left behind (the system's, or one
@@ -38,12 +38,12 @@ object AppLocaleManager {
     private fun applyPersianOnce(context: Context) {
         if (MmkvManager.decodeSettingsBool(PREF_PERSIAN_APPLIED, false)) return
         MmkvManager.encodeSettings(PREF_PERSIAN_APPLIED, true)
-        MmkvManager.encodeSettings(AppConfig.PREF_LANGUAGE, Language.PERSIAN.code)
+        MmkvManager.encodeSettings(AppConfig.PREF_LANGUAGE, Language.ENGLISH.code)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             context.getSystemService(LocaleManager::class.java).applicationLocales =
-                android.os.LocaleList(requireNotNull(Language.PERSIAN.locale))
+                android.os.LocaleList(requireNotNull(Language.ENGLISH.locale))
         } else {
-            AppCompatDelegate.setApplicationLocales(Language.PERSIAN.toLocaleList())
+            AppCompatDelegate.setApplicationLocales(Language.ENGLISH.toLocaleList())
         }
     }
 
@@ -99,7 +99,7 @@ object AppLocaleManager {
 
     // Phonix: Persian until the person picks another language
     private fun storedLanguage(): Language = Language.fromCode(
-        MmkvManager.decodeSettingsString(AppConfig.PREF_LANGUAGE) ?: Language.PERSIAN.code
+        MmkvManager.decodeSettingsString(AppConfig.PREF_LANGUAGE) ?: Language.ENGLISH.code
     )
 
     private fun syncLegacyPreference(languageTag: String?) {

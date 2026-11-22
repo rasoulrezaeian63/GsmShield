@@ -863,4 +863,5 @@
     <string name="ui_free_fetching">در حال دریافت کلید، ممکن است کمی طول بکشد…</string>
     <string name="ui_free_again">قبلاً روی این دستگاه کلید رایگان گرفته‌اید.</string>
     <string name="ui_free_error">دریافت کلید ناموفق بود. اتصال را بررسی و دوباره تلاش کنید.</string>
+    <string name="ui_servers_update">به‌روزرسانی سرورها</string>
 </resources>

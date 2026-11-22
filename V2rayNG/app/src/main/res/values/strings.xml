@@ -873,4 +873,5 @@
     <string name="ui_free_again">You already received a free key on this device.</string>
     <string name="ui_free_error">Could not get the key. Check your connection and try again.</string>
     <string name="menu_item_add_watray_netherlands" translatable="false">Watray Netherlands</string>
+    <string name="ui_servers_update">Update servers</string>
 </resources>

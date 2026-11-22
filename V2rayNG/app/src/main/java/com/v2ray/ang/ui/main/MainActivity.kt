@@ -201,6 +201,31 @@ class MainActivity : HelperBaseComponentActivity() {
                 sub.subscription.usageInfo?.let { buildSubscriptionInfoUiModel(it, System.currentTimeMillis()) }
             }
             var livePing by remember { mutableStateOf(0L) }
+            var latencies by remember { mutableStateOf<Map<String, Long>>(emptyMap()) }
+            val refreshLatency: () -> Unit = {
+                val rows = servers
+                scope.launch {
+                    val result = withContext(Dispatchers.IO) {
+                        rows.map { r ->
+                            kotlinx.coroutines.async {
+                                val p = MmkvManager.decodeServerConfig(r.guid)
+                                var host = p?.server.orEmpty()
+                                var port = p?.serverPort?.toIntOrNull() ?: 0
+                                if (p != null && com.v2ray.ang.core.WaterwallCoreManager.isWatray(p)) {
+                                    val j = com.v2ray.ang.handler.WatrayUpdater.serverFor(r.name)
+                                    host = j?.optString("address").orEmpty().ifEmpty { "watnl.netlixo.ir" }
+                                    port = j?.optInt("rtmp_port", 1935) ?: 1935
+                                }
+                                val ms = if (host.isBlank() || port <= 0) -1L
+                                else com.v2ray.ang.handler.SpeedtestManager.socketConnectTime(host, port, 3000)
+                                r.guid to ms
+                            }
+                        }.map { it.await() }.toMap()
+                    }
+                    latencies = result
+                }
+            }
+            LaunchedEffect(servers) { refreshLatency() }
             LaunchedEffect(uiState.status) {
                 (uiState.status as? MainStatus.ConnectionTest)?.let { livePing = it.result.delayMillis }
             }
@@ -241,6 +266,12 @@ class MainActivity : HelperBaseComponentActivity() {
                 downloadSpeed = downloadSpeed,
                 uploadSpeed = uploadSpeed,
                 pingMs = if (uiState.isRunning) livePing else 0L,
+                latencies = latencies,
+                onRePing = {
+                    if (uiState.isRunning) { livePing = 0L; mainViewModel.testCurrentServerRealPing() }
+                    refreshLatency()
+                },
+                onRefreshLatency = refreshLatency,
                 isPersian = isPersian,
                 onSelectServer = { guid ->
                     // null gives the pick back to the lowest delay; a key is a server chosen by hand

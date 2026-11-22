@@ -1,6 +1,10 @@
 package com.v2ray.ang.ui.main
 
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.border
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.layout.heightIn
 import androidx.core.view.WindowCompat
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.platform.LocalLayoutDirection
@@ -98,16 +102,16 @@ internal class UiColors(
 
 @Composable
 internal fun uiColors(): UiColors = UiColors(
-    background = Color(0xFFE9ECFB),
-    backgroundTop = Color(0xFFFFFFFF),
-    card = Color(0xFFFFFFFF),
-    inner = Color(0xFFDCE0F5),
-    field = Color(0xFFEEF0FB),
-    text = Color(0xFF1B1B3A),
-    subText = Color(0xFF6B6F8F),
-    accent = Color(0xFF7B3DFF),
-    idle = Color(0xFF9AA0C0),
-    danger = Color(0xFFE5384D),
+    background = Color(0xFF0A1630),
+    backgroundTop = Color(0xFF12254D),
+    card = Color(0xFF16305F),
+    inner = Color(0xFF1F3F78),
+    field = Color(0xFF1B3669),
+    text = Color(0xFFFFFFFF),
+    subText = Color(0xFFE6D8A0),
+    accent = Color(0xFF22C55E),
+    idle = Color(0xFF8FA0C4),
+    danger = Color(0xFFFF6B6B),
 )
 
 internal fun Modifier.phonixBackground(c: UiColors): Modifier =
@@ -131,8 +135,8 @@ internal fun PhonixSystemBars() {
     SideEffect {
         val window = view.context.findActivity()?.window ?: return@SideEffect
         val controller = WindowCompat.getInsetsController(window, view)
-        controller.isAppearanceLightStatusBars = true
-        controller.isAppearanceLightNavigationBars = true
+        controller.isAppearanceLightStatusBars = false
+        controller.isAppearanceLightNavigationBars = false
     }
 }
 
@@ -340,6 +344,9 @@ internal fun SimpleHomeScreen(
     downloadSpeed: Long,
     uploadSpeed: Long,
     pingMs: Long,
+    latencies: Map<String, Long>,
+    onRePing: () -> Unit,
+    onRefreshLatency: () -> Unit,
     isPersian: Boolean,
     onSelectServer: (String?) -> Unit,
     onToggle: () -> Unit,
@@ -414,6 +421,14 @@ internal fun SimpleHomeScreen(
                         if (ended && !isRunning) showEnded = true else onToggle()
                     },
                     onOpenServers = { tabIndex = HomeTab.SERVERS.ordinal },
+                    onRePing = onRePing,
+                    servers = servers,
+                    selectedGuid = selectedGuid,
+                    manualSelection = manualSelection,
+                    latencies = latencies,
+                    onSelectServer = onSelectServer,
+                    onUpdate = onUpdate,
+                    onRefreshLatency = onRefreshLatency,
                 )
 
                 HomeTab.SERVERS -> ServersTab(
@@ -421,6 +436,7 @@ internal fun SimpleHomeScreen(
                     servers = servers,
                     selectedGuid = selectedGuid,
                     manualSelection = manualSelection,
+                    latencies = latencies,
                     onSelect = {
                         onSelectServer(it)
                         tabIndex = HomeTab.HOME.ordinal
@@ -502,6 +518,14 @@ private fun ConnectionTab(
     pingMs: Long,
     onToggle: () -> Unit,
     onOpenServers: () -> Unit,
+    onRePing: () -> Unit,
+    servers: List<PhonixPolicy.ServerRow>,
+    selectedGuid: String?,
+    manualSelection: Boolean,
+    latencies: Map<String, Long>,
+    onSelectServer: (String?) -> Unit,
+    onUpdate: () -> Unit,
+    onRefreshLatency: () -> Unit,
 ) {
     val preparing = setupState == PhonixProvisioner.Setup.PREPARING
     val shownStatus = when {
@@ -557,48 +581,17 @@ private fun ConnectionTab(
         }
         Spacer(Modifier.height(18.dp))
 
-        Surface(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clip(RoundedCornerShape(30.dp))
-                .clickable(onClick = onOpenServers),
-            shape = RoundedCornerShape(30.dp),
-            color = c.card,
-            shadowElevation = 4.dp,
-        ) {
-            Row(
-                modifier = Modifier.padding(horizontal = 18.dp, vertical = 12.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Box(
-                    modifier = Modifier.size(40.dp).clip(CircleShape).background(c.inner),
-                    contentAlignment = Alignment.Center,
-                ) { Text("\uD83C\uDF10", fontSize = 20.sp) }
-                Spacer(Modifier.size(12.dp))
-                Column(Modifier.weight(1f)) {
-                    Text(text = locationLabel, color = c.subText, fontSize = 12.sp)
-                    Text(
-                        text = locationName,
-                        color = c.text,
-                        fontSize = 17.sp,
-                        fontWeight = FontWeight.Bold,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                    )
-                }
-                Text(text = "\u2304", color = c.text, fontSize = 22.sp)
-            }
-        }
         Spacer(Modifier.height(12.dp))
         Box(
             modifier = Modifier
                 .clip(RoundedCornerShape(50))
-                .background(Color(0xFFD9F5E3))
+                .background(Color(0xFF22C55E).copy(alpha = 0.18f))
+                .clickable(onClick = onRePing)
                 .padding(horizontal = 26.dp, vertical = 8.dp),
         ) {
             Text(
                 text = "\u26A1  " + if (pingMs > 0L) "$pingMs ms" else "\u2014 ms",
-                color = Color(0xFF14532D),
+                color = Color(0xFF7CF0A6),
                 fontSize = 16.sp,
                 fontWeight = FontWeight.Bold,
             )
@@ -608,7 +601,68 @@ private fun ConnectionTab(
             SpeedCard(c, R.drawable.ic_arrow_up_24dp, stringResource(R.string.ui_home_upload), uploadSpeed, Modifier.weight(1f))
             SpeedCard(c, R.drawable.ic_arrow_down_24dp, stringResource(R.string.ui_home_download), downloadSpeed, Modifier.weight(1f))
         }
+        Spacer(Modifier.height(14.dp))
+        ServerDropdown(c, locationLabel, locationName, servers, selectedGuid, manualSelection, latencies, onSelectServer, onUpdate, onRefreshLatency)
         Spacer(Modifier.height(8.dp))
+    }
+}
+
+@Composable
+private fun ServerDropdown(
+    c: UiColors,
+    label: String,
+    name: String,
+    servers: List<PhonixPolicy.ServerRow>,
+    selectedGuid: String?,
+    manualSelection: Boolean,
+    latencies: Map<String, Long>,
+    onSelect: (String?) -> Unit,
+    onUpdate: () -> Unit,
+    onRefreshLatency: () -> Unit,
+) {
+    var open by rememberSaveable { mutableStateOf(false) }
+    Surface(
+        modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(24.dp)).clickable {
+            open = !open
+            if (open) onRefreshLatency()
+        },
+        shape = RoundedCornerShape(24.dp),
+        color = c.card,
+        shadowElevation = 4.dp,
+    ) {
+        Column(Modifier.padding(horizontal = 14.dp, vertical = 12.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Box(Modifier.size(38.dp).clip(CircleShape).background(c.inner), contentAlignment = Alignment.Center) {
+                    Text("\uD83C\uDF10", fontSize = 19.sp)
+                }
+                Spacer(Modifier.size(12.dp))
+                Column(Modifier.weight(1f)) {
+                    Text(text = label, color = c.subText, fontSize = 12.sp)
+                    Text(text = name, color = c.text, fontSize = 16.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                }
+                Text(text = if (open) "\u2303" else "\u2304", color = c.text, fontSize = 22.sp)
+            }
+            if (open) {
+                Spacer(Modifier.height(10.dp))
+                // Update servers: subscription link + Watray list
+                Box(
+                    modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp))
+                        .background(c.accent.copy(alpha = 0.18f))
+                        .border(BorderStroke(1.dp, c.accent), RoundedCornerShape(16.dp))
+                        .clickable { onUpdate() }.padding(vertical = 10.dp),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Text("\u21BB  " + stringResource(R.string.ui_servers_update), color = c.text, fontSize = 15.sp, fontWeight = FontWeight.Bold)
+                }
+                Spacer(Modifier.height(8.dp))
+                Column(Modifier.heightIn(max = 320.dp).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    ServerRowItem(c, stringResource(R.string.ui_servers_auto), !manualSelection, null) { onSelect(null); open = false }
+                    servers.forEach { sv ->
+                        ServerRowItem(c, sv.name, manualSelection && sv.guid == selectedGuid, latencies[sv.guid]) { onSelect(sv.guid); open = false }
+                    }
+                }
+            }
+        }
     }
 }
 
@@ -616,25 +670,26 @@ private fun ConnectionTab(
 private fun SpeedCard(c: UiColors, icon: Int, label: String, bytesPerSecond: Long, modifier: Modifier) {
     Surface(
         modifier = modifier,
-        shape = RoundedCornerShape(24.dp),
+        shape = RoundedCornerShape(16.dp),
         color = c.card,
-        shadowElevation = 3.dp,
     ) {
-        Column(
-            modifier = Modifier.fillMaxWidth().padding(vertical = 16.dp, horizontal = 8.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp, horizontal = 10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.Center,
         ) {
-            Icon(painter = painterResource(icon), contentDescription = null, modifier = Modifier.size(30.dp), tint = c.accent)
-            Spacer(Modifier.height(6.dp))
-            Text(
-                text = bytesPerSecond.coerceAtLeast(0L).toTrafficString() + "/s",
-                color = c.text,
-                fontSize = 18.sp,
-                fontWeight = FontWeight.ExtraBold,
-                maxLines = 1,
-            )
-            Spacer(Modifier.height(4.dp))
-            Text(text = label, color = c.text, fontSize = 14.sp, fontWeight = FontWeight.Medium)
+            Icon(painter = painterResource(icon), contentDescription = null, modifier = Modifier.size(18.dp), tint = c.accent)
+            Spacer(Modifier.size(6.dp))
+            Column {
+                Text(
+                    text = bytesPerSecond.coerceAtLeast(0L).toTrafficString() + "/s",
+                    color = c.text,
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.Bold,
+                    maxLines = 1,
+                )
+                Text(text = label, color = c.subText, fontSize = 10.sp)
+            }
         }
     }
 }
@@ -642,16 +697,16 @@ private fun SpeedCard(c: UiColors, icon: Int, label: String, bytesPerSecond: Lon
 /** The big round power button with a purple-to-blue ring, as in the reference design. */
 @Composable
 private fun PowerButton(c: UiColors, on: Boolean, ready: Boolean, busy: Boolean, enabled: Boolean, onClick: () -> Unit) {
-    val ring = Brush.linearGradient(listOf(Color(0xFFC03DFF), Color(0xFF3D8BFF)))
+    val ring = Brush.linearGradient(listOf(Color(0xFFE3C35A), Color(0xFF22C55E)))
     val greenRing = Brush.linearGradient(listOf(Color(0xFF22C55E), Color(0xFF16A34A)))
     val progress = remember { androidx.compose.animation.core.Animatable(0f) }
     val active = busy || on
     LaunchedEffect(active, ready) {
         when {
             // Only a real successful ping completes the ring: 100%, and it stays while connected.
-            ready -> progress.animateTo(1f, androidx.compose.animation.core.tween(400))
+            ready -> progress.animateTo(1f, androidx.compose.animation.core.tween(((1f - progress.value) * 1_500).toInt().coerceIn(300, 1_500), easing = androidx.compose.animation.core.LinearEasing))
             // Connecting or waiting for ping: climb slowly to 90% and hold. Never reach 100% by itself.
-            active -> progress.animateTo(0.9f, androidx.compose.animation.core.tween(25_000, easing = androidx.compose.animation.core.LinearOutSlowInEasing))
+            active -> progress.animateTo(0.9f, androidx.compose.animation.core.tween(((0.9f - progress.value) * 14_000).toInt().coerceAtLeast(1), easing = androidx.compose.animation.core.LinearEasing))
             else -> {
                 // Brief gap between "starting" and "running" must not reset the ring
                 kotlinx.coroutines.delay(1_500)
@@ -659,42 +714,42 @@ private fun PowerButton(c: UiColors, on: Boolean, ready: Boolean, busy: Boolean,
             }
         }
     }
-    Box(contentAlignment = Alignment.Center, modifier = Modifier.size(250.dp)) {
-        Box(Modifier.size(250.dp).clip(CircleShape).background(c.accent.copy(alpha = 0.06f)))
-        Box(Modifier.size(210.dp).clip(CircleShape).background(c.accent.copy(alpha = 0.09f)))
+    Box(contentAlignment = Alignment.Center, modifier = Modifier.size(200.dp)) {
+        Box(Modifier.size(200.dp).clip(CircleShape).background(c.accent.copy(alpha = 0.06f)))
+        Box(Modifier.size(170.dp).clip(CircleShape).background(c.accent.copy(alpha = 0.09f)))
         Box(
             modifier = Modifier
-                .size(180.dp)
+                .size(144.dp)
                 .alpha(if (enabled) 1f else 0.5f)
                 .clip(CircleShape)
                 .background(
                     when {
                         ready -> greenRing
                         on -> ring
-                        else -> Brush.linearGradient(listOf(Color(0xFFD08CFF), Color(0xFF8FB8FF)))
+                        else -> Brush.linearGradient(listOf(Color(0xFF6C7FA8), Color(0xFF4A5C85)))
                     },
                 )
                 .clickable(enabled = enabled, onClick = onClick),
             contentAlignment = Alignment.Center,
         ) {
             Box(
-                modifier = Modifier.size(156.dp).clip(CircleShape).background(Color(0xFF14123A)),
+                modifier = Modifier.size(124.dp).clip(CircleShape).background(Color(0xFF0A1630)),
                 contentAlignment = Alignment.Center,
             ) {
                 if (busy || progress.value > 0f) {
                     CircularProgressIndicator(
                         progress = { progress.value },
-                        modifier = Modifier.size(110.dp),
+                        modifier = Modifier.size(90.dp),
                         color = if (ready) Color(0xFF22C55E) else Color.White,
                         trackColor = Color.White.copy(alpha = 0.15f),
                         strokeWidth = 6.dp,
                     )
-                    Text("${(progress.value * 100).toInt()}%", color = Color.White, fontSize = 22.sp, fontWeight = FontWeight.Bold)
+                    Text(if (ready) stringResource(R.string.ui_home_status_connected) else "${(progress.value * 100).toInt()}%", color = Color.White, fontSize = if (ready) 15.sp else 22.sp, fontWeight = FontWeight.Bold)
                 } else {
                     Icon(
                         painter = painterResource(R.drawable.ic_power_24dp),
                         contentDescription = null,
-                        modifier = Modifier.size(72.dp),
+                        modifier = Modifier.size(56.dp),
                         tint = Color.White,
                     )
                 }
@@ -733,6 +788,7 @@ private fun ServersTab(
     servers: List<PhonixPolicy.ServerRow>,
     selectedGuid: String?,
     manualSelection: Boolean,
+    latencies: Map<String, Long>,
     onSelect: (String?) -> Unit,
 ) {
     var query by rememberSaveable { mutableStateOf("") }
@@ -801,6 +857,7 @@ private fun ServersTab(
                         colors = c,
                         name = stringResource(R.string.ui_servers_auto),
                         selected = !manualSelection,
+                        latency = null,
                         onClick = { onSelect(null) },
                     )
                 }
@@ -809,6 +866,7 @@ private fun ServersTab(
                         colors = c,
                         name = server.name,
                         selected = manualSelection && server.guid == selectedGuid,
+                        latency = latencies[server.guid],
                         onClick = { onSelect(server.guid) },
                     )
                 }
@@ -1125,25 +1183,19 @@ private fun ServerRowItem(
     colors: UiColors,
     name: String,
     selected: Boolean,
+    latency: Long?,
     onClick: () -> Unit,
 ) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(14.dp))
+            .clip(RoundedCornerShape(16.dp))
+            .background(colors.inner)
+            .border(BorderStroke(if (selected) 2.dp else 1.dp, if (selected) colors.accent else colors.idle.copy(alpha = 0.4f)), RoundedCornerShape(16.dp))
             .clickable(onClick = onClick)
-            .padding(vertical = 10.dp, horizontal = 4.dp),
+            .padding(vertical = 12.dp, horizontal = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Box(
-            modifier = Modifier
-                .size(20.dp)
-                .border(BorderStroke(2.dp, if (selected) colors.accent else colors.idle), CircleShape),
-            contentAlignment = Alignment.Center,
-        ) {
-            if (selected) Box(Modifier.size(10.dp).clip(CircleShape).background(colors.accent))
-        }
-        Spacer(Modifier.size(12.dp))
         Text(
             text = name,
             modifier = Modifier.weight(1f),
@@ -1153,6 +1205,22 @@ private fun ServerRowItem(
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
         )
+        if (latency != null) {
+            Text(
+                text = if (latency > 0L) "$latency ms" else "\u2014",
+                color = if (latency in 1..300) Color(0xFF7CF0A6) else colors.subText,
+                fontSize = 13.sp,
+                fontWeight = FontWeight.Medium,
+            )
+            Spacer(Modifier.size(10.dp))
+        }
+        if (selected) {
+            Box(Modifier.size(24.dp).clip(CircleShape).background(colors.accent), contentAlignment = Alignment.Center) {
+                Text("\u2713", color = Color.White, fontSize = 15.sp, fontWeight = FontWeight.Bold)
+            }
+        } else {
+            Box(Modifier.size(24.dp).border(BorderStroke(2.dp, colors.idle), CircleShape))
+        }
     }
 }
 
