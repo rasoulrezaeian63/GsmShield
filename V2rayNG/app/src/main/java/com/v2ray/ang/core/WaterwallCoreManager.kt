@@ -51,10 +51,10 @@ object WaterwallCoreManager {
                 }
             }
             File(dir, "log").mkdirs()
-            // WaterWall docs: core input is chosen with "--config:PATH" (colon required), relative to the working dir.
+            // No arguments: the core reads core.json from the working dir, exactly as verified by hand in Termux.
             // The nativeLibraryDir file is not marked executable on every ROM; harmless when it already is.
             binary.setExecutable(true, false)
-            val started = ProcessBuilder(binary.absolutePath, "--config:core.json")
+            val started = ProcessBuilder(binary.absolutePath)
                 .directory(dir)
                 .redirectErrorStream(true)
                 .start()
@@ -62,7 +62,7 @@ object WaterwallCoreManager {
             // Drain the output: an unread pipe would stall the core, and its first lines say why it failed.
             Thread({
                 try {
-                    started.inputStream.bufferedReader().forEachLine { LogUtil.d(AppConfig.TAG, "Waterwall: $it") }
+                    started.inputStream.bufferedReader().forEachLine { LogUtil.i(AppConfig.TAG, "Waterwall: $it") }
                 } catch (_: Exception) {
                 }
             }, "waterwall-log").apply { isDaemon = true }.start()
