@@ -344,7 +344,6 @@ internal fun SimpleHomeScreen(
     onSelectServer: (String?) -> Unit,
     onToggle: () -> Unit,
     onUpdate: () -> Unit,
-    onAddWatray: () -> Unit,
     onGetNewIp: () -> Unit,
     onSetLanguage: (String) -> Unit,
     onLogout: () -> Unit,
@@ -422,7 +421,6 @@ internal fun SimpleHomeScreen(
                     servers = servers,
                     selectedGuid = selectedGuid,
                     manualSelection = manualSelection,
-                    onAddWatray = onAddWatray,
                     onSelect = {
                         onSelectServer(it)
                         tabIndex = HomeTab.HOME.ordinal
@@ -698,7 +696,6 @@ private fun ServersTab(
     selectedGuid: String?,
     manualSelection: Boolean,
     onSelect: (String?) -> Unit,
-    onAddWatray: () -> Unit,
 ) {
     var query by rememberSaveable { mutableStateOf("") }
     Column(
@@ -713,17 +710,6 @@ private fun ServersTab(
             fontSize = 22.sp,
             fontWeight = FontWeight.Bold,
         )
-        Spacer(Modifier.height(14.dp))
-        // Adds the bundled "Watray Netherlands" server (manual add). Pick its row below, then connect from home.
-        OutlinedButton(
-            onClick = onAddWatray,
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(48.dp),
-            shape = RoundedCornerShape(24.dp),
-        ) {
-            Text(stringResource(R.string.menu_item_add_watray_netherlands), fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
-        }
         Spacer(Modifier.height(14.dp))
         BasicTextField(
             value = query,

@@ -234,8 +234,11 @@ object PhonixPolicy {
     data class ServerRow(val guid: String, val name: String)
 
     /** The servers of the subscription, in the order of the panel, for the list on the screen. */
-    fun serverRows(): List<ServerRow> =
-        (serverCandidates() + watrayCandidates()).map { (guid, profile) -> ServerRow(guid, profile.remarks.trim()) }
+    fun serverRows(): List<ServerRow> {
+        // The Watray row is always there: created (idempotent) before the list is read, no manual add needed
+        com.v2ray.ang.core.WaterwallCoreManager.ensureProfile()
+        return (serverCandidates() + watrayCandidates()).map { (guid, profile) -> ServerRow(guid, profile.remarks.trim()) }
+    }
 
     /** The manually added "Watray Netherlands" profile (ungrouped). Only ever picked by hand, never at random. */
     private fun watrayCandidates(): List<Pair<String, ProfileItem>> =

@@ -4,17 +4,19 @@ import android.content.Context
 import com.v2ray.ang.AppConfig
 import com.v2ray.ang.dto.entities.ProfileItem
 import com.v2ray.ang.enums.EConfigType
+import com.v2ray.ang.handler.MmkvManager
 import com.v2ray.ang.util.LogUtil
 import java.io.File
 
 /**
- * Runs the bundled WaterWall core (libwaterwall.so) for the "Watray Netherlands" profile. Xray owns the TUN
+ * Runs the bundled WaterWall core (libwaterwall.so) for the "Watray" profile. Xray owns the TUN
  * and dials a SOCKS outbound to the core's listener on [PORT]; the core's own upstream sockets are
  * excluded from the VPN because the app itself is a disallowed application.
  * Only arm64-v8a is bundled.
  */
 object WaterwallCoreManager {
-    const val NAME = "Watray Netherlands"
+    const val NAME = "Watray \uD83C\uDDF3\uD83C\uDDF1"
+    private const val LEGACY_NAME = "Watray Netherlands"
     const val PORT = 1085
     private const val ASSET_DIR = "waterwall"
 
@@ -29,13 +31,35 @@ object WaterwallCoreManager {
     private fun lastLines(): String = tail.toList().takeLast(3).joinToString(" | ").take(200)
 
     fun isWatray(p: ProfileItem): Boolean =
-        p.configType == EConfigType.SOCKS && p.remarks == NAME && p.server == AppConfig.LOOPBACK &&
+        p.configType == EConfigType.SOCKS && (p.remarks == NAME || p.remarks == LEGACY_NAME) && p.server == AppConfig.LOOPBACK &&
             p.serverPort == PORT.toString()
 
     fun createProfile(): ProfileItem = ProfileItem.create(EConfigType.SOCKS).apply {
         remarks = NAME
         server = AppConfig.LOOPBACK
         serverPort = PORT.toString()
+    }
+
+    /**
+     * Makes sure the bundled profile is in the list (ungrouped), so the person never has to add it. Also renames the
+     * profile of earlier builds ("Watray Netherlands"); the manual pick is kept by name, so it is moved along.
+     */
+    fun ensureProfile() {
+        val found = MmkvManager.decodeServerList("").firstNotNullOfOrNull { guid ->
+            MmkvManager.decodeServerConfig(guid)?.takeIf { isWatray(it) }?.let { guid to it }
+        }
+        if (found == null) {
+            MmkvManager.encodeServerConfig("", createProfile())
+            return
+        }
+        val (guid, profile) = found
+        if (profile.remarks != NAME) {
+            if (MmkvManager.decodeSettingsString("phonix_manual_server") == LEGACY_NAME) {
+                MmkvManager.encodeSettings("phonix_manual_server", NAME)
+            }
+            profile.remarks = NAME
+            MmkvManager.encodeServerConfig(guid, profile)
+        }
     }
 
     fun isSupported(context: Context): Boolean =

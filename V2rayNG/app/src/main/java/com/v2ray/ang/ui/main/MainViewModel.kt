@@ -351,7 +351,6 @@ class MainViewModel(
             is MainAction.MoveServer -> moveServer(action.groupId, action.fromGuid, action.toGuid)
             is MainAction.Search -> filterConfig(action.query)
             is MainAction.ImportBatchConfig -> importBatchConfig(action.configText)
-            MainAction.AddWatray -> addWatray()
             MainAction.LocateHandled -> consumeLocateTarget()
             is MainAction.MoveRefusalShown -> _uiState.update {
                 if (it.moveRefusal == action.refusal) it.copy(moveRefusal = null) else it
@@ -633,19 +632,6 @@ class MainViewModel(
     }
 
     // ---------- Business actions (coroutine-based) ----------
-    /** Adds the bundled "Watray Netherlands" profile (a SOCKS profile to the WaterWall core), once. */
-    private fun addWatray() {
-        viewModelScope.launch(ioDispatcher) {
-            val exists = MmkvManager.decodeAllServerList().any { guid ->
-                MmkvManager.decodeServerConfig(guid)?.let { WaterwallCoreManager.isWatray(it) } == true
-            }
-            if (!exists) {
-                MmkvManager.encodeServerConfig("", WaterwallCoreManager.createProfile())
-            }
-            setupGroupTab(forceRefresh = true)
-        }
-    }
-
     private fun importBatchConfig(configText: String) {
         launchLoading {
             withContext(ioDispatcher) {
