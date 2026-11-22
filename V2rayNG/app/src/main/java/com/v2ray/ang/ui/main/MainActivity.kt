@@ -206,8 +206,9 @@ class MainActivity : HelperBaseComponentActivity() {
                 val rows = servers
                 scope.launch {
                     val result = withContext(Dispatchers.IO) {
+                        kotlinx.coroutines.coroutineScope {
                         rows.map { r ->
-                            kotlinx.coroutines.async {
+                            async {
                                 val p = MmkvManager.decodeServerConfig(r.guid)
                                 var host = p?.server.orEmpty()
                                 var port = p?.serverPort?.toIntOrNull() ?: 0
@@ -221,6 +222,7 @@ class MainActivity : HelperBaseComponentActivity() {
                                 r.guid to ms
                             }
                         }.map { it.await() }.toMap()
+                        }
                     }
                     latencies = result
                 }
