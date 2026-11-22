@@ -85,6 +85,7 @@ object WaterwallCoreManager {
                     File(dir, name).outputStream().use { input.copyTo(it) }
                 }
             }
+            pinServerAddress(File(dir, "config.json"))
             File(dir, "log").mkdirs()
             // No arguments: the core reads core.json from the working dir, exactly as verified by hand in Termux.
             // The nativeLibraryDir file is not marked executable on every ROM; harmless when it already is.
@@ -124,6 +125,46 @@ object WaterwallCoreManager {
             LogUtil.e(AppConfig.TAG, "Waterwall: failed to start", e)
             lastFailure = "exec failed: ${e.message}".take(160)
             return false
+        }
+    }
+
+    private val serverAddressRegex = Regex("\"server_address\"\\s*:\\s*\"([^\"]+)\"")
+    private val lastKnownIp = java.util.concurrent.ConcurrentHashMap<String, String>()
+
+    /**
+     * The core's own resolver (c-ares) finds no DNS servers on Android: there is no resolv.conf, and it never asks
+     * the system ("Could not contact DNS servers"), unlike in Termux which ships one. So the server name is resolved
+     * here, through Android's resolver, and the IP is written into the config. The app is a disallowed application,
+     * so this lookup does not go through the VPN. Falls back to the last good IP, then to the name itself.
+     */
+    private fun pinServerAddress(configFile: File) {
+        try {
+            val text = configFile.readText()
+            val host = serverAddressRegex.find(text)?.groupValues?.get(1) ?: return
+            if (host.all { it.isDigit() || it == '.' || it == ':' }) return
+            var ip: String? = null
+            // Off the calling thread: a lookup on the main thread is refused by Android, and must not hang the start.
+            val worker = Thread({
+                try {
+                    val all = java.net.InetAddress.getAllByName(host)
+                    ip = (all.firstOrNull { it is java.net.Inet4Address } ?: all.firstOrNull())?.hostAddress
+                } catch (e: Exception) {
+                    LogUtil.w(AppConfig.TAG, "Waterwall: cannot resolve $host: ${e.message}")
+                }
+            }, "waterwall-resolve").apply { isDaemon = true }
+            worker.start()
+            worker.join(8_000)
+            val resolved = ip?.also { lastKnownIp[host] = it } ?: lastKnownIp[host]
+            if (resolved == null) {
+                LogUtil.w(AppConfig.TAG, "Waterwall: no IP for $host, leaving the name to the core")
+                return
+            }
+            LogUtil.i(AppConfig.TAG, "Waterwall: $host -> $resolved")
+            configFile.writeText(
+                text.replace(serverAddressRegex) { "\"server_address\": \"$resolved\"" }
+            )
+        } catch (e: Exception) {
+            LogUtil.w(AppConfig.TAG, "Waterwall: pinServerAddress failed: ${e.message}")
         }
     }
 
