@@ -31,7 +31,7 @@ object WaterwallCoreManager {
     private fun lastLines(): String = tail.toList().takeLast(3).joinToString(" | ").take(200)
 
     fun isWatray(p: ProfileItem): Boolean =
-        p.configType == EConfigType.SOCKS && (p.remarks == NAME || p.remarks == LEGACY_NAME) && p.server == AppConfig.LOOPBACK &&
+        p.configType == EConfigType.SOCKS && (p.remarks == NAME || p.remarks == LEGACY_NAME || p.remarks.startsWith("Watray ")) && p.server == AppConfig.LOOPBACK &&
             p.serverPort == PORT.toString()
 
     fun createProfile(): ProfileItem = ProfileItem.create(EConfigType.SOCKS).apply {
@@ -46,7 +46,7 @@ object WaterwallCoreManager {
      */
     fun ensureProfile() {
         val found = MmkvManager.decodeServerList("").firstNotNullOfOrNull { guid ->
-            MmkvManager.decodeServerConfig(guid)?.takeIf { isWatray(it) }?.let { guid to it }
+            MmkvManager.decodeServerConfig(guid)?.takeIf { isWatray(it) && (it.remarks == NAME || it.remarks == LEGACY_NAME) }?.let { guid to it }
         }
         if (found == null) {
             MmkvManager.encodeServerConfig("", createProfile())
@@ -67,7 +67,7 @@ object WaterwallCoreManager {
 
     /** Starts the core; false when it could not start. The caller refuses the session then. */
     @Synchronized
-    fun start(context: Context): Boolean {
+    fun start(context: Context, profile: ProfileItem? = null): Boolean {
         stop()
         tail.clear()
         lastFailure = ""
@@ -85,6 +85,7 @@ object WaterwallCoreManager {
                     File(dir, name).outputStream().use { input.copyTo(it) }
                 }
             }
+            applyRemoteServer(File(dir, "config.json"), profile)
             pinServerAddress(File(dir, "config.json"))
             File(dir, "log").mkdirs()
             // No arguments: the core reads core.json from the working dir, exactly as verified by hand in Termux.
@@ -125,6 +126,30 @@ object WaterwallCoreManager {
             LogUtil.e(AppConfig.TAG, "Waterwall: failed to start", e)
             lastFailure = "exec failed: ${e.message}".take(160)
             return false
+        }
+    }
+
+    /** Writes the fields of the panel's server entry (see WatrayUpdater) over the bundled variables. */
+    private fun applyRemoteServer(configFile: File, profile: ProfileItem?) {
+        val s = profile?.let { com.v2ray.ang.handler.WatrayUpdater.serverFor(it.remarks) } ?: return
+        try {
+            var text = configFile.readText()
+            fun set(key: String, value: String) {
+                text = text.replace(Regex("\"$key\"\\s*:\\s*(\"[^\"]*\"|\\d+)")) { "\"$key\": $value" }
+            }
+            val address = s.getString("address")
+            set("server_address", org.json.JSONObject.quote(address))
+            if (s.has("rtmp_port")) set("rtmp_port", s.getInt("rtmp_port").toString())
+            if (s.has("reality_port")) set("reality_port", s.getInt("reality_port").toString())
+            val rtmpPort = if (s.has("rtmp_port")) s.getInt("rtmp_port") else 1935
+            set("rtmp_url", org.json.JSONObject.quote(s.optString("rtmp_url", "rtmp://$address:$rtmpPort/waterwall")))
+            for (k in listOf("reality_sni", "reality_password", "trojan_password")) {
+                if (s.has(k)) set(k, org.json.JSONObject.quote(s.getString(k)))
+            }
+            if (s.has("obfuscator_key")) set("obfuscator_key", s.getInt("obfuscator_key").toString())
+            configFile.writeText(text)
+        } catch (e: Exception) {
+            LogUtil.w(AppConfig.TAG, "Waterwall: remote server entry ignored: ${e.message}")
         }
     }
 

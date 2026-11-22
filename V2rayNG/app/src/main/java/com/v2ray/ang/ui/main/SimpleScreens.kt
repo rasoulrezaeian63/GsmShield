@@ -645,13 +645,18 @@ private fun PowerButton(c: UiColors, on: Boolean, ready: Boolean, busy: Boolean,
     val ring = Brush.linearGradient(listOf(Color(0xFFC03DFF), Color(0xFF3D8BFF)))
     val greenRing = Brush.linearGradient(listOf(Color(0xFF22C55E), Color(0xFF16A34A)))
     val progress = remember { androidx.compose.animation.core.Animatable(0f) }
-    LaunchedEffect(busy, on, ready) {
+    val active = busy || on
+    LaunchedEffect(active, ready) {
         when {
             // Only a real successful ping completes the ring: 100%, and it stays while connected.
             ready -> progress.animateTo(1f, androidx.compose.animation.core.tween(400))
             // Connecting or waiting for ping: climb slowly to 90% and hold. Never reach 100% by itself.
-            busy || on -> progress.animateTo(0.9f, androidx.compose.animation.core.tween(25_000, easing = androidx.compose.animation.core.LinearOutSlowInEasing))
-            else -> progress.snapTo(0f)
+            active -> progress.animateTo(0.9f, androidx.compose.animation.core.tween(25_000, easing = androidx.compose.animation.core.LinearOutSlowInEasing))
+            else -> {
+                // Brief gap between "starting" and "running" must not reset the ring
+                kotlinx.coroutines.delay(1_500)
+                progress.snapTo(0f)
+            }
         }
     }
     Box(contentAlignment = Alignment.Center, modifier = Modifier.size(250.dp)) {

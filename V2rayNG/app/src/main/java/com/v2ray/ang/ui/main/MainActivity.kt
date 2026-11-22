@@ -252,7 +252,10 @@ class MainActivity : HelperBaseComponentActivity() {
                     if (setupState == PhonixProvisioner.Setup.PREPARING) toast(R.string.ui_setup_wait)
                     else handleFabAction()
                 },
-                onUpdate = { mainViewModel.onAction(MainAction.UpdateSubscriptions) },
+                onUpdate = {
+                    mainViewModel.onAction(MainAction.UpdateSubscriptions)
+                    Thread { if (com.v2ray.ang.handler.WatrayUpdater.updateNow()) runOnUiThread { serversRevision++ } }.start()
+                },
                 onGetNewIp = {
                     if (scanning) return@SimpleHomeScreen
                     if (uiState.isRunning) {

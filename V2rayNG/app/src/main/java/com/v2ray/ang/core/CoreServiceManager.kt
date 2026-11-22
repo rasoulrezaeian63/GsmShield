@@ -378,7 +378,7 @@ object CoreServiceManager {
         // Watray Netherlands: its SOCKS outbound needs the WaterWall core listening on loopback.
         if (WaterwallCoreManager.isWatray(config)) {
             // Without the core listening, the SOCKS outbound leads nowhere: the session is refused, not left silent.
-            if (!WaterwallCoreManager.start(service) || !WaterwallCoreManager.awaitListening()) {
+            if (!WaterwallCoreManager.start(service, config) || !WaterwallCoreManager.awaitListening()) {
                 val reason = WaterwallCoreManager.lastFailure
                 WaterwallCoreManager.stop()
                 throw StartFailure(service.getString(R.string.watray_start_failed, reason))

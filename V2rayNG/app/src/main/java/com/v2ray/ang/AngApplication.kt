@@ -51,5 +51,8 @@ class AngApplication : Application() {
 
         // Initialize theme state from MMKV
         ThemeManager.refresh()
+
+        // Watray servers from the panel, every 6 hours
+        com.v2ray.ang.handler.WatrayUpdater.schedule(this)
     }
 }
