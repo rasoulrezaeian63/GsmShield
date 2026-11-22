@@ -42,19 +42,30 @@ object WaterwallCoreManager {
             LogUtil.w(AppConfig.TAG, "Waterwall: binary missing (unsupported ABI)")
             return false
         }
-        val dir = File(context.filesDir, ASSET_DIR).apply { mkdirs() }
-        // Rewritten on every start so an updated app always runs its own bundled config.
-        for (name in listOf("core.json", "config.json")) {
-            context.assets.open("$ASSET_DIR/$name").use { input ->
-                File(dir, name).outputStream().use { input.copyTo(it) }
-            }
-        }
-        File(dir, "log").mkdirs()
         try {
-            process = ProcessBuilder(binary.absolutePath)
+            val dir = File(context.filesDir, ASSET_DIR).apply { mkdirs() }
+            // Rewritten on every start so an updated app always runs its own bundled config.
+            for (name in listOf("core.json", "config.json")) {
+                context.assets.open("$ASSET_DIR/$name").use { input ->
+                    File(dir, name).outputStream().use { input.copyTo(it) }
+                }
+            }
+            File(dir, "log").mkdirs()
+            // WaterWall docs: core input is chosen with "--config:PATH" (colon required), relative to the working dir.
+            // The nativeLibraryDir file is not marked executable on every ROM; harmless when it already is.
+            binary.setExecutable(true, false)
+            val started = ProcessBuilder(binary.absolutePath, "--config:core.json")
                 .directory(dir)
                 .redirectErrorStream(true)
                 .start()
+            process = started
+            // Drain the output: an unread pipe would stall the core, and its first lines say why it failed.
+            Thread({
+                try {
+                    started.inputStream.bufferedReader().forEachLine { LogUtil.d(AppConfig.TAG, "Waterwall: $it") }
+                } catch (_: Exception) {
+                }
+            }, "waterwall-log").apply { isDaemon = true }.start()
             LogUtil.i(AppConfig.TAG, "Waterwall: started")
             return true
         } catch (e: Exception) {
@@ -76,6 +87,10 @@ object WaterwallCoreManager {
         val deadline = System.currentTimeMillis() + budgetMs
         while (System.currentTimeMillis() < deadline) {
             if (isListening()) return true
+            if (process?.isAlive == false) {
+                LogUtil.w(AppConfig.TAG, "Waterwall: exited with ${process?.exitValue()} before listening")
+                return false
+            }
             Thread.sleep(250)
         }
         return false
