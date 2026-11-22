@@ -1,0 +1,31 @@
+{
+  "name": "socks5-rtmp-reality-client",
+  "variables": {
+    "socks_address": "127.0.0.1",
+    "socks_port": 1085,
+    "server_address": "watnl.netlixo.ir",
+    "rtmp_port": 1935,
+    "rtmp_url": "rtmp://watnl.netlixo.ir:1935/waterwall",
+    "reality_port": 6443,
+    "reality_sni": "netlixy.ir",
+    "reality_password": "secret-197ce338",
+    "trojan_password": "secret-d22533bd",
+    "mux_connections_per_worker": 1,
+    "stripe_connections": 8,
+    "obfuscator_key": 90
+  },
+  "nodes": [
+    {"name": "socks-listener", "type": "TcpUdpListener", "settings": {"address": $socks_address$, "port": $socks_port$, "nodelay": true}, "next": "socks"},
+    {"name": "socks", "type": "Socks5Server", "settings": {"no-auth": true, "connect": true, "udp": true, "ipv4": $socks_address$}, "next": "trojan"},
+    {"name": "trojan", "type": "TrojanClient", "settings": {"password": $trojan_password$, "address": "dest_context->address", "port": "dest_context->port", "protocol": "dest_context->protocol"}, "next": "mux"},
+    {"name": "mux", "type": "MuxClient", "settings": {"mode": "fixed-connections-count", "per-worker-connections-count": $mux_connections_per_worker$}, "next": "half-duplex"},
+    {"name": "half-duplex", "type": "HalfDuplexClient", "settings": {"upload": "up", "download": "down-stripe"}},
+    {"name": "up", "type": "ConnectionStripeClient", "settings": {"connections": $stripe_connections$}, "next": "obfuscator"},
+    {"name": "obfuscator", "type": "ObfuscatorClient", "settings": {"method": "xor", "xor_key": $obfuscator_key$}, "next": "rtmp"},
+    {"name": "rtmp", "type": "RtmpClient", "settings": {"tc-url": $rtmp_url$}, "next": "rtmp-connector"},
+    {"name": "rtmp-connector", "type": "TcpConnector", "settings": {"address": $server_address$, "port": $rtmp_port$, "nodelay": true, "fastopen": false}},
+    {"name": "down-stripe", "type": "ConnectionStripeClient", "settings": {"connections": $stripe_connections$}, "next": "down"},
+    {"name": "down", "type": "RealityClient", "settings": {"sni": $reality_sni$, "password": $reality_password$, "verify": true}, "next": "reality-connector"},
+    {"name": "reality-connector", "type": "TcpConnector", "settings": {"address": $server_address$, "port": $reality_port$, "nodelay": true, "fastopen": false}}
+  ]
+}
