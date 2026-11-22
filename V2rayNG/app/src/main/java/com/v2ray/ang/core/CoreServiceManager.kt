@@ -376,7 +376,13 @@ object CoreServiceManager {
         // The Aether core dials out through an inbound of Xray, which listens once the start returns, so
         // the core starts after it rather than spending its first dials on a port nobody listens on yet.
         // Watray Netherlands: its SOCKS outbound needs the WaterWall core listening on loopback.
-        if (WaterwallCoreManager.isWatray(config)) WaterwallCoreManager.start(service)
+        if (WaterwallCoreManager.isWatray(config)) {
+            // Without the core listening, the SOCKS outbound leads nowhere: the session is refused, not left silent.
+            if (!WaterwallCoreManager.start(service) || !WaterwallCoreManager.awaitListening()) {
+                WaterwallCoreManager.stop()
+                throw StartFailure(service.getString(R.string.watray_start_failed))
+            }
+        }
         if (aether != null) {
             // The tests were told to stop as this start began; the session's core waits for their cores to be gone.
             aetherExitHandled = false

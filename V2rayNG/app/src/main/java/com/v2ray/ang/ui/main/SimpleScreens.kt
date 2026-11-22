@@ -422,6 +422,7 @@ internal fun SimpleHomeScreen(
                     servers = servers,
                     selectedGuid = selectedGuid,
                     manualSelection = manualSelection,
+                    onAddWatray = onAddWatray,
                     onSelect = {
                         onSelectServer(it)
                         tabIndex = HomeTab.HOME.ordinal
@@ -435,7 +436,6 @@ internal fun SimpleHomeScreen(
                     ended = ended,
                     isUpdating = isUpdating,
                     onUpdate = onUpdate,
-                    onAddWatray = onAddWatray,
                 )
 
                 HomeTab.MENU -> Unit
@@ -698,6 +698,7 @@ private fun ServersTab(
     selectedGuid: String?,
     manualSelection: Boolean,
     onSelect: (String?) -> Unit,
+    onAddWatray: () -> Unit,
 ) {
     var query by rememberSaveable { mutableStateOf("") }
     Column(
@@ -712,6 +713,17 @@ private fun ServersTab(
             fontSize = 22.sp,
             fontWeight = FontWeight.Bold,
         )
+        Spacer(Modifier.height(14.dp))
+        // Adds the bundled "Watray Netherlands" server (manual add). Pick its row below, then connect from home.
+        OutlinedButton(
+            onClick = onAddWatray,
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(48.dp),
+            shape = RoundedCornerShape(24.dp),
+        ) {
+            Text(stringResource(R.string.menu_item_add_watray_netherlands), fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
+        }
         Spacer(Modifier.height(14.dp))
         BasicTextField(
             value = query,
@@ -789,7 +801,6 @@ private fun ProfileTab(
     ended: Boolean,
     isUpdating: Boolean,
     onUpdate: () -> Unit,
-    onAddWatray: () -> Unit,
 ) {
     Column(
         modifier = Modifier
@@ -885,16 +896,6 @@ private fun ProfileTab(
             } else {
                 Text(stringResource(R.string.ui_home_update_sub), fontSize = 17.sp, fontWeight = FontWeight.SemiBold)
             }
-        }
-        // Adds the bundled "Watray Netherlands" server to the server list (manual add).
-        OutlinedButton(
-            onClick = onAddWatray,
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(54.dp),
-            shape = RoundedCornerShape(27.dp),
-        ) {
-            Text(stringResource(R.string.menu_item_add_watray_netherlands), fontSize = 17.sp, fontWeight = FontWeight.SemiBold)
         }
         val profileCtx = androidx.compose.ui.platform.LocalContext.current
         OutlinedButton(

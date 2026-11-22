@@ -668,6 +668,7 @@
     <string name="aether_command_custom">Edited by hand: this command runs as written, and the settings above are not applied, except for Xray-core settings</string>
     <string name="aether_action_use_settings">Use the settings</string>
     <string name="aether_invalid_command">The command has to name arguments for the Aether core, with the port it listens on after --bind</string>
+    <string name="watray_start_failed">The Watray core could not start on this device</string>
     <string name="aether_unsupported_abi">The Aether core is not available for this device</string>
     <string name="aether_core_stopped">The Aether core stopped running</string>
     <string name="aether_core_stopped_no_ech_key">The Aether core stopped: ECH is on, but no usable ECH key was found. Without one, the server name would have gone out in the clear.</string>

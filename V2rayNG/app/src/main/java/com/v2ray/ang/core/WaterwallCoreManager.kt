@@ -33,13 +33,14 @@ object WaterwallCoreManager {
     fun isSupported(context: Context): Boolean =
         File(context.applicationInfo.nativeLibraryDir, "libwaterwall.so").exists()
 
+    /** Starts the core; false when it could not start. The caller refuses the session then. */
     @Synchronized
-    fun start(context: Context) {
+    fun start(context: Context): Boolean {
         stop()
         val binary = File(context.applicationInfo.nativeLibraryDir, "libwaterwall.so")
         if (!binary.exists()) {
             LogUtil.w(AppConfig.TAG, "Waterwall: binary missing (unsupported ABI)")
-            return
+            return false
         }
         val dir = File(context.filesDir, ASSET_DIR).apply { mkdirs() }
         // Rewritten on every start so an updated app always runs its own bundled config.
@@ -55,9 +56,29 @@ object WaterwallCoreManager {
                 .redirectErrorStream(true)
                 .start()
             LogUtil.i(AppConfig.TAG, "Waterwall: started")
+            return true
         } catch (e: Exception) {
             LogUtil.e(AppConfig.TAG, "Waterwall: failed to start", e)
+            return false
         }
+    }
+
+    /** Whether the core accepts connections on its SOCKS port; Xray's outbound needs it. */
+    fun isListening(timeoutMs: Int = 2000): Boolean = try {
+        java.net.Socket().use { it.connect(java.net.InetSocketAddress(AppConfig.LOOPBACK, PORT), timeoutMs) }
+        true
+    } catch (e: Exception) {
+        false
+    }
+
+    /** Polls [isListening] until the core answers or [budgetMs] runs out. */
+    fun awaitListening(budgetMs: Long = 10_000L): Boolean {
+        val deadline = System.currentTimeMillis() + budgetMs
+        while (System.currentTimeMillis() < deadline) {
+            if (isListening()) return true
+            Thread.sleep(250)
+        }
+        return false
     }
 
     @Synchronized
