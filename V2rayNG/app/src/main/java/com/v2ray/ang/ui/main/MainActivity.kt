@@ -1,5 +1,6 @@
 package com.v2ray.ang.ui.main
 
+import kotlinx.coroutines.async
 import android.content.Intent
 import android.net.VpnService
 import android.net.TrafficStats
@@ -208,7 +209,7 @@ class MainActivity : HelperBaseComponentActivity() {
                     val result = withContext(Dispatchers.IO) {
                         kotlinx.coroutines.coroutineScope {
                         rows.map { r ->
-                            async {
+                            async<Pair<String, Long>> {
                                 val p = MmkvManager.decodeServerConfig(r.guid)
                                 var host = p?.server.orEmpty()
                                 var port = p?.serverPort?.toIntOrNull() ?: 0
