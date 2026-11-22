@@ -524,7 +524,16 @@ private fun ConnectionTab(
             .padding(horizontal = 20.dp, vertical = 8.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        PowerButton(c = c, on = isRunning, busy = isStarting, enabled = !preparing, onClick = onToggle)
+        // Completed (100%, green, "connected") only after a real ping has succeeded.
+        val pingOk = isRunning && pingMs > 0L
+        PowerButton(
+            c = c,
+            on = isRunning,
+            ready = pingOk,
+            busy = isStarting || (isRunning && !pingOk),
+            enabled = !preparing,
+            onClick = onToggle,
+        )
         Spacer(Modifier.height(16.dp))
         Row(verticalAlignment = Alignment.CenterVertically) {
             Box(Modifier.size(12.dp).clip(CircleShape).background(dotColor))
@@ -632,18 +641,16 @@ private fun SpeedCard(c: UiColors, icon: Int, label: String, bytesPerSecond: Lon
 
 /** The big round power button with a purple-to-blue ring, as in the reference design. */
 @Composable
-private fun PowerButton(c: UiColors, on: Boolean, busy: Boolean, enabled: Boolean, onClick: () -> Unit) {
+private fun PowerButton(c: UiColors, on: Boolean, ready: Boolean, busy: Boolean, enabled: Boolean, onClick: () -> Unit) {
     val ring = Brush.linearGradient(listOf(Color(0xFFC03DFF), Color(0xFF3D8BFF)))
+    val greenRing = Brush.linearGradient(listOf(Color(0xFF22C55E), Color(0xFF16A34A)))
     val progress = remember { androidx.compose.animation.core.Animatable(0f) }
-    LaunchedEffect(busy, on) {
+    LaunchedEffect(busy, on, ready) {
         when {
-            // Connecting: climb slowly towards 90% and wait there until the ping succeeds.
-            busy && !on -> progress.animateTo(0.9f, androidx.compose.animation.core.tween(25_000, easing = androidx.compose.animation.core.LinearOutSlowInEasing))
-            on -> {
-                progress.animateTo(1f, androidx.compose.animation.core.tween(400))
-                kotlinx.coroutines.delay(1200)
-                progress.snapTo(0f)
-            }
+            // Only a real successful ping completes the ring: 100%, and it stays while connected.
+            ready -> progress.animateTo(1f, androidx.compose.animation.core.tween(400))
+            // Connecting or waiting for ping: climb slowly to 90% and hold. Never reach 100% by itself.
+            busy || on -> progress.animateTo(0.9f, androidx.compose.animation.core.tween(25_000, easing = androidx.compose.animation.core.LinearOutSlowInEasing))
             else -> progress.snapTo(0f)
         }
     }
@@ -655,7 +662,13 @@ private fun PowerButton(c: UiColors, on: Boolean, busy: Boolean, enabled: Boolea
                 .size(180.dp)
                 .alpha(if (enabled) 1f else 0.5f)
                 .clip(CircleShape)
-                .background(if (on) ring else Brush.linearGradient(listOf(Color(0xFFD08CFF), Color(0xFF8FB8FF))))
+                .background(
+                    when {
+                        ready -> greenRing
+                        on -> ring
+                        else -> Brush.linearGradient(listOf(Color(0xFFD08CFF), Color(0xFF8FB8FF)))
+                    },
+                )
                 .clickable(enabled = enabled, onClick = onClick),
             contentAlignment = Alignment.Center,
         ) {
@@ -667,7 +680,7 @@ private fun PowerButton(c: UiColors, on: Boolean, busy: Boolean, enabled: Boolea
                     CircularProgressIndicator(
                         progress = { progress.value },
                         modifier = Modifier.size(110.dp),
-                        color = if (on) Color(0xFF22C55E) else Color.White,
+                        color = if (ready) Color(0xFF22C55E) else Color.White,
                         trackColor = Color.White.copy(alpha = 0.15f),
                         strokeWidth = 6.dp,
                     )

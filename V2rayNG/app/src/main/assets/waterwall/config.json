@@ -8,8 +8,8 @@
     "rtmp_url": "rtmp://watnl.netlixo.ir:1935/waterwall",
     "reality_port": 6443,
     "reality_sni": "netlixy.ir",
-    "reality_password": "secret-197ce338",
-    "trojan_password": "secret-d22533bd",
+    "reality_password": "Rq7vLx2MP9kT4wZ8nB5cF3hJ6dG1yS0a",
+    "trojan_password": "e8b41f6c9a2d7053f1e4c8b6a9d20f73c5e1b8a4d6f29037",
     "mux_connections_per_worker": 1,
     "stripe_connections": 8,
     "obfuscator_key": 90
