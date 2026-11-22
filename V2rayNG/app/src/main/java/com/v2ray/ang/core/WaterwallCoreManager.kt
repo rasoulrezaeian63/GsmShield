@@ -109,7 +109,9 @@ object WaterwallCoreManager {
             Thread({
                 try {
                     started.inputStream.bufferedReader().forEachLine {
-                        LogUtil.i(AppConfig.TAG, "Waterwall: $it")
+                        // Always visible in logcat (tag "Waterwall"), whatever the app's log level is: this is the
+                        // only place the core says why a handshake or a connect failed.
+                        android.util.Log.w("Waterwall", it)
                         tail.addLast(it)
                         if (tail.size > 20) tail.pollFirst()
                     }
