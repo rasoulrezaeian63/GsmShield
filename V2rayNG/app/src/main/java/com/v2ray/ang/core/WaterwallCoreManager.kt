@@ -20,6 +20,14 @@ object WaterwallCoreManager {
 
     private var process: Process? = null
 
+    /** Why the last start failed, shown to the user: the bare "could not start" message hid three different causes. */
+    @Volatile
+    var lastFailure: String = ""
+        private set
+    private val tail = java.util.concurrent.ConcurrentLinkedDeque<String>()
+
+    private fun lastLines(): String = tail.toList().takeLast(3).joinToString(" | ").take(200)
+
     fun isWatray(p: ProfileItem): Boolean =
         p.configType == EConfigType.SOCKS && p.remarks == NAME && p.server == AppConfig.LOOPBACK &&
             p.serverPort == PORT.toString()
@@ -37,9 +45,12 @@ object WaterwallCoreManager {
     @Synchronized
     fun start(context: Context): Boolean {
         stop()
+        tail.clear()
+        lastFailure = ""
         val binary = File(context.applicationInfo.nativeLibraryDir, "libwaterwall.so")
         if (!binary.exists()) {
             LogUtil.w(AppConfig.TAG, "Waterwall: binary missing (unsupported ABI)")
+            lastFailure = "binary missing (abi)"
             return false
         }
         try {
@@ -62,7 +73,11 @@ object WaterwallCoreManager {
             // Drain the output: an unread pipe would stall the core, and its first lines say why it failed.
             Thread({
                 try {
-                    started.inputStream.bufferedReader().forEachLine { LogUtil.i(AppConfig.TAG, "Waterwall: $it") }
+                    started.inputStream.bufferedReader().forEachLine {
+                        LogUtil.i(AppConfig.TAG, "Waterwall: $it")
+                        tail.addLast(it)
+                        if (tail.size > 20) tail.pollFirst()
+                    }
                 } catch (_: Exception) {
                 }
             }, "waterwall-log").apply { isDaemon = true }.start()
@@ -70,6 +85,7 @@ object WaterwallCoreManager {
             return true
         } catch (e: Exception) {
             LogUtil.e(AppConfig.TAG, "Waterwall: failed to start", e)
+            lastFailure = "exec failed: ${e.message}".take(160)
             return false
         }
     }
@@ -89,10 +105,13 @@ object WaterwallCoreManager {
             if (isListening()) return true
             if (process?.isAlive == false) {
                 LogUtil.w(AppConfig.TAG, "Waterwall: exited with ${process?.exitValue()} before listening")
+                Thread.sleep(200) // let the log thread drain the last lines
+                lastFailure = "exited ${process?.exitValue()}: ${lastLines()}"
                 return false
             }
             Thread.sleep(250)
         }
+        lastFailure = "not listening on $PORT after ${budgetMs / 1000}s: ${lastLines()}"
         return false
     }
 
