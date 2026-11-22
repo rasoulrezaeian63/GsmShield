@@ -344,6 +344,7 @@ internal fun SimpleHomeScreen(
     onSelectServer: (String?) -> Unit,
     onToggle: () -> Unit,
     onUpdate: () -> Unit,
+    onAddWatray: () -> Unit,
     onGetNewIp: () -> Unit,
     onSetLanguage: (String) -> Unit,
     onLogout: () -> Unit,
@@ -434,6 +435,7 @@ internal fun SimpleHomeScreen(
                     ended = ended,
                     isUpdating = isUpdating,
                     onUpdate = onUpdate,
+                    onAddWatray = onAddWatray,
                 )
 
                 HomeTab.MENU -> Unit
@@ -787,6 +789,7 @@ private fun ProfileTab(
     ended: Boolean,
     isUpdating: Boolean,
     onUpdate: () -> Unit,
+    onAddWatray: () -> Unit,
 ) {
     Column(
         modifier = Modifier
@@ -882,6 +885,16 @@ private fun ProfileTab(
             } else {
                 Text(stringResource(R.string.ui_home_update_sub), fontSize = 17.sp, fontWeight = FontWeight.SemiBold)
             }
+        }
+        // Adds the bundled "Watray Netherlands" server to the server list (manual add).
+        OutlinedButton(
+            onClick = onAddWatray,
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(54.dp),
+            shape = RoundedCornerShape(27.dp),
+        ) {
+            Text(stringResource(R.string.menu_item_add_watray_netherlands), fontSize = 17.sp, fontWeight = FontWeight.SemiBold)
         }
         val profileCtx = androidx.compose.ui.platform.LocalContext.current
         OutlinedButton(

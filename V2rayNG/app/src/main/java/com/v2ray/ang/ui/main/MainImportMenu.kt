@@ -12,7 +12,8 @@ import com.v2ray.ang.ui.compose.SelectListDialog
 
 private enum class ImportMenuAction(@StringRes val labelRes: Int, val action: MainAction) {
     QRCode(R.string.menu_item_import_config_qrcode, MainAction.ImportQRcode),
-    Clipboard(R.string.menu_item_import_config_clipboard, MainAction.ImportClipboard)
+    Clipboard(R.string.menu_item_import_config_clipboard, MainAction.ImportClipboard),
+    Watray(R.string.menu_item_add_watray_netherlands, MainAction.AddWatray)
 }
 
 enum class MainMoreMenuAction(@StringRes val labelRes: Int) {

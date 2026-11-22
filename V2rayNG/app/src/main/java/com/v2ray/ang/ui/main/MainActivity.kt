@@ -253,6 +253,7 @@ class MainActivity : HelperBaseComponentActivity() {
                     else handleFabAction()
                 },
                 onUpdate = { mainViewModel.onAction(MainAction.UpdateSubscriptions) },
+                onAddWatray = { mainViewModel.onAction(MainAction.AddWatray) },
                 onGetNewIp = {
                     if (scanning) return@SimpleHomeScreen
                     if (uiState.isRunning) {

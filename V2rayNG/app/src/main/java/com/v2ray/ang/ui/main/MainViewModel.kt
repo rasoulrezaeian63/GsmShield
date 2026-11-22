@@ -18,6 +18,8 @@ import com.v2ray.ang.extension.delay
 import com.v2ray.ang.extension.isComplexType
 import com.v2ray.ang.extension.matchesPattern
 import com.v2ray.ang.extension.moveItem
+import com.v2ray.ang.core.WaterwallCoreManager
+import com.v2ray.ang.handler.MmkvManager
 import com.v2ray.ang.handler.PhonixPolicy
 import com.v2ray.ang.handler.SubscriptionInfoParser
 import com.v2ray.ang.ui.base.BaseViewModel
@@ -349,6 +351,7 @@ class MainViewModel(
             is MainAction.MoveServer -> moveServer(action.groupId, action.fromGuid, action.toGuid)
             is MainAction.Search -> filterConfig(action.query)
             is MainAction.ImportBatchConfig -> importBatchConfig(action.configText)
+            MainAction.AddWatray -> addWatray()
             MainAction.LocateHandled -> consumeLocateTarget()
             is MainAction.MoveRefusalShown -> _uiState.update {
                 if (it.moveRefusal == action.refusal) it.copy(moveRefusal = null) else it
@@ -630,6 +633,19 @@ class MainViewModel(
     }
 
     // ---------- Business actions (coroutine-based) ----------
+    /** Adds the bundled "Watray Netherlands" profile (a SOCKS profile to the WaterWall core), once. */
+    private fun addWatray() {
+        viewModelScope.launch(ioDispatcher) {
+            val exists = MmkvManager.decodeAllServerList().any { guid ->
+                MmkvManager.decodeServerConfig(guid)?.let { WaterwallCoreManager.isWatray(it) } == true
+            }
+            if (!exists) {
+                MmkvManager.encodeServerConfig("", WaterwallCoreManager.createProfile())
+            }
+            setupGroupTab(forceRefresh = true)
+        }
+    }
+
     private fun importBatchConfig(configText: String) {
         launchLoading {
             withContext(ioDispatcher) {

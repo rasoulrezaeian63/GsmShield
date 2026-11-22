@@ -267,6 +267,7 @@ object CoreServiceManager {
         // A reload still has the previous session's core; it ends before Xray starts again. The new core,
         // if any, starts once Xray listens, see launchNativeCore.
         AetherCoreManager.stop()
+        WaterwallCoreManager.stop()
         if (aether != null) {
             checkAetherPorts(service, guid, aether, result.content, isReload)
             // The check can take seconds. A reload starts Xray again only while the monitor that asked for it is
@@ -279,6 +280,7 @@ object CoreServiceManager {
         } catch (e: Exception) {
             // Setup failed after this attempt spawned the Aether process; release it with the rest.
             AetherCoreManager.stop()
+            WaterwallCoreManager.stop()
             throw e
         }
         return true
@@ -294,6 +296,7 @@ object CoreServiceManager {
             "StartCore-Manager: ${service.javaClass.simpleName} ${if (isReload) "reload" else "start"} refused, $reason, guid=$guid"
         )
         AetherCoreManager.stop()
+        WaterwallCoreManager.stop()
         throw StartFailure(message())
     }
 
@@ -372,6 +375,8 @@ object CoreServiceManager {
 
         // The Aether core dials out through an inbound of Xray, which listens once the start returns, so
         // the core starts after it rather than spending its first dials on a port nobody listens on yet.
+        // Watray Netherlands: its SOCKS outbound needs the WaterWall core listening on loopback.
+        if (WaterwallCoreManager.isWatray(config)) WaterwallCoreManager.start(service)
         if (aether != null) {
             // The tests were told to stop as this start began; the session's core waits for their cores to be gone.
             aetherExitHandled = false
@@ -479,6 +484,7 @@ object CoreServiceManager {
         NotificationManager.cancelNotification()
         cancelAetherWarmUp()
         AetherCoreManager.stop()
+        WaterwallCoreManager.stop()
 
         if (isRunning()) {
             CoroutineScope(Dispatchers.IO).launch {
@@ -636,6 +642,7 @@ object CoreServiceManager {
             NotificationManager.cancelNotification()
             cancelAetherWarmUp()
             AetherCoreManager.stop()
+            WaterwallCoreManager.stop()
             try {
                 coreController.stopLoop()
             } catch (e: Exception) {

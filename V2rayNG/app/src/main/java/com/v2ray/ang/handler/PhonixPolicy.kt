@@ -235,7 +235,13 @@ object PhonixPolicy {
 
     /** The servers of the subscription, in the order of the panel, for the list on the screen. */
     fun serverRows(): List<ServerRow> =
-        serverCandidates().map { (guid, profile) -> ServerRow(guid, profile.remarks.trim()) }
+        (serverCandidates() + watrayCandidates()).map { (guid, profile) -> ServerRow(guid, profile.remarks.trim()) }
+
+    /** The manually added "Watray Netherlands" profile (ungrouped). Only ever picked by hand, never at random. */
+    private fun watrayCandidates(): List<Pair<String, ProfileItem>> =
+        MmkvManager.decodeServerList("")
+            .mapNotNull { guid -> MmkvManager.decodeServerConfig(guid)?.let { guid to it } }
+            .filter { (_, profile) -> com.v2ray.ang.core.WaterwallCoreManager.isWatray(profile) }
 
     private const val PREF_MANUAL_SERVER = "phonix_manual_server"
 
@@ -245,7 +251,7 @@ object PhonixPolicy {
      */
     fun manualServerGuid(): String? {
         val name = MmkvManager.decodeSettingsString(PREF_MANUAL_SERVER)?.takeIf { it.isNotEmpty() } ?: return null
-        return serverCandidates().firstOrNull { (_, profile) -> profile.remarks.trim() == name }?.first
+        return (serverCandidates() + watrayCandidates()).firstOrNull { (_, profile) -> profile.remarks.trim() == name }?.first
     }
 
     /** Takes the choice of a server by hand: its name, or null to give the choice back to the random pick. */

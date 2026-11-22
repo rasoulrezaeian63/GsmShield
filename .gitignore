@@ -70,3 +70,8 @@ Thumbs.db
 
 # Written by fetch-psiphon-servers.sh for every build beside psiphon_servers.dat (which *.dat covers).
 V2rayNG/app/src/main/assets/psiphon_servers.stamp
+
+# Waterwall config contains secrets - keep out of git
+waterwall/
+V2rayNG/app/src/main/assets/waterwall/
+!V2rayNG/app/src/main/jniLibs/arm64-v8a/libwaterwall.so
