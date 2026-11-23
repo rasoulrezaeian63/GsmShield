@@ -53,6 +53,9 @@ class AngApplication : Application() {
         ThemeManager.refresh()
 
         // Watray servers from the panel, every 6 hours
-        com.v2ray.ang.handler.WatrayUpdater.schedule(this)
+        // Only the UI process schedules it: the :daemon/:tasks processes must not touch WorkManager here
+        if (Application.getProcessName() == packageName) {
+            runCatching { com.v2ray.ang.handler.WatrayUpdater.schedule(this) }
+        }
     }
 }

@@ -7,6 +7,7 @@ import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.heightIn
 import androidx.core.view.WindowCompat
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.platform.LocalView
@@ -623,37 +624,20 @@ private fun ServerDropdown(
     onRefreshLatency: () -> Unit,
 ) {
     var open by rememberSaveable { mutableStateOf(false) }
-    Surface(
-        modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(24.dp)).clickable {
-            open = !open
-            if (open) onRefreshLatency()
-        },
-        shape = RoundedCornerShape(24.dp),
-        color = c.card,
-        shadowElevation = 4.dp,
-    ) {
-        Column(Modifier.padding(horizontal = 14.dp, vertical = 12.dp).animateContentSize()) {
-            if (open) {
-                                // Update servers: subscription link + Watray list
-                Box(
-                    modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp))
-                        .background(c.accent.copy(alpha = 0.18f))
-                        .border(BorderStroke(1.dp, c.accent), RoundedCornerShape(16.dp))
-                        .clickable { onUpdate() }.padding(vertical = 10.dp),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Text("\u21BB  " + stringResource(R.string.ui_servers_update), color = c.text, fontSize = 15.sp, fontWeight = FontWeight.Bold)
-                }
-                Spacer(Modifier.height(8.dp))
-                Column(Modifier.heightIn(max = (androidx.compose.ui.platform.LocalConfiguration.current.screenHeightDp - 230).coerceAtLeast(240).dp).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    ServerRowItem(c, stringResource(R.string.ui_servers_auto), !manualSelection, null) { onSelect(null); open = false }
-                    servers.forEach { sv ->
-                        ServerRowItem(c, sv.name, manualSelection && sv.guid == selectedGuid, latencies[sv.guid]) { onSelect(sv.guid); open = false }
-                    }
-                }
-                Spacer(Modifier.height(10.dp))
-            }
-            Row(verticalAlignment = Alignment.CenterVertically) {
+    var anchorWidthPx by remember { mutableStateOf(0) }
+    val density = androidx.compose.ui.platform.LocalDensity.current
+    val maxPanel = (androidx.compose.ui.platform.LocalConfiguration.current.screenHeightDp - 150).coerceAtLeast(240).dp
+    Box(Modifier.fillMaxWidth().onSizeChanged { anchorWidthPx = it.width }) {
+        Surface(
+            modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(24.dp)).clickable {
+                open = !open
+                if (open) onRefreshLatency()
+            },
+            shape = RoundedCornerShape(24.dp),
+            color = c.card,
+            shadowElevation = 4.dp,
+        ) {
+            Row(Modifier.padding(horizontal = 14.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
                 Box(Modifier.size(38.dp).clip(CircleShape).background(c.inner), contentAlignment = Alignment.Center) {
                     Text("\uD83C\uDF10", fontSize = 19.sp)
                 }
@@ -662,9 +646,55 @@ private fun ServerDropdown(
                     Text(text = label, color = c.subText, fontSize = 12.sp)
                     Text(text = name, color = c.text, fontSize = 16.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }
-                Text(text = if (open) "\u2303" else "\u2304", color = c.text, fontSize = 22.sp)
+                Text(text = if (open) "\u2304" else "\u2303", color = c.text, fontSize = 22.sp)
             }
-
+        }
+        if (open) {
+            val gapPx = with(density) { 8.dp.roundToPx() }
+            val provider = remember(gapPx) {
+                object : androidx.compose.ui.window.PopupPositionProvider {
+                    override fun calculatePosition(
+                        anchorBounds: androidx.compose.ui.unit.IntRect,
+                        windowSize: androidx.compose.ui.unit.IntSize,
+                        layoutDirection: LayoutDirection,
+                        popupContentSize: androidx.compose.ui.unit.IntSize,
+                    ): androidx.compose.ui.unit.IntOffset {
+                        val y = (anchorBounds.top - popupContentSize.height - gapPx).coerceAtLeast(0)
+                        return androidx.compose.ui.unit.IntOffset(anchorBounds.left, y)
+                    }
+                }
+            }
+            androidx.compose.ui.window.Popup(
+                popupPositionProvider = provider,
+                onDismissRequest = { open = false },
+                properties = androidx.compose.ui.window.PopupProperties(focusable = true),
+            ) {
+                Surface(
+                    modifier = Modifier.width(with(density) { anchorWidthPx.toDp() }),
+                    shape = RoundedCornerShape(24.dp),
+                    color = c.card,
+                    shadowElevation = 8.dp,
+                ) {
+                    Column(Modifier.padding(12.dp)) {
+                        Box(
+                            modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp))
+                                .background(c.accent.copy(alpha = 0.18f))
+                                .border(BorderStroke(1.dp, c.accent), RoundedCornerShape(16.dp))
+                                .clickable { onUpdate() }.padding(vertical = 10.dp),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            Text("\u21BB  " + stringResource(R.string.ui_servers_update), color = c.text, fontSize = 15.sp, fontWeight = FontWeight.Bold)
+                        }
+                        Spacer(Modifier.height(8.dp))
+                        Column(Modifier.heightIn(max = maxPanel).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            ServerRowItem(c, stringResource(R.string.ui_servers_auto), !manualSelection, null) { onSelect(null); open = false }
+                            servers.forEach { sv ->
+                                ServerRowItem(c, sv.name, manualSelection && sv.guid == selectedGuid, latencies[sv.guid]) { onSelect(sv.guid); open = false }
+                            }
+                        }
+                    }
+                }
+            }
         }
     }
 }
