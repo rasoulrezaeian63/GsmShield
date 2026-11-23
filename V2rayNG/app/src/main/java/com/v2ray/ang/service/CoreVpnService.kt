@@ -97,7 +97,16 @@ class CoreVpnService : VpnService(), ServiceControl {
             stopSelf()
             return START_NOT_STICKY
         }
-        startService()
+        // The Watray start waits for the WaterWall core (up to 30s). On the main thread that is an ANR,
+        // the :daemon process gets killed and the system answers "process is bad" on the next taps.
+        Thread({
+            try {
+                startService()
+            } catch (e: Throwable) {
+                LogUtil.e(AppConfig.TAG, "StartCore-VPN: start failed", e)
+                stopAllService()
+            }
+        }, "core-start").start()
         return START_STICKY
     }
 
