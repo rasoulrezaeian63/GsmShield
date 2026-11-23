@@ -1,4 +1,4 @@
-name: Build Phonix APK
+name: Build GsmShield APK
 
 on:
   workflow_dispatch:
@@ -223,5 +223,5 @@ jobs:
     - name: Upload APKs
       uses: actions/upload-artifact@v7
       with:
-        name: phonix-apk
+        name: gsmshield-apk
         path: ${{ github.workspace }}/V2rayNG/app/build/outputs/apk/playstore/release/*.apk
