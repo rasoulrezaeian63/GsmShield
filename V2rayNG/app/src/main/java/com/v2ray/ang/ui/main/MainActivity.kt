@@ -231,7 +231,7 @@ class MainActivity : HelperBaseComponentActivity() {
                         }
                     }
                     latencies = result
-                    if (manualGuid == null && !uiState.isRunning) {
+                    if (manualGuid == null && !uiState.isRunning && !startingState.value) {
                         result.filter { it.value > 0 }.minByOrNull { it.value }?.key?.let { setSelectServer(it) }
                     }
                 }
@@ -272,7 +272,7 @@ class MainActivity : HelperBaseComponentActivity() {
                 isScanning = scanning,
                 setupState = setupState,
                 servers = servers,
-                selectedGuid = uiState.selectedGuid,
+                selectedGuid = (if (uiState.isRunning || startingState.value) MmkvManager.getSelectServer() else null) ?: uiState.selectedGuid,
                 manualSelection = manualGuid != null,
                 downloadSpeed = downloadSpeed,
                 uploadSpeed = uploadSpeed,

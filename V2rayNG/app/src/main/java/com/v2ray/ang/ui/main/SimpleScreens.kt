@@ -645,7 +645,7 @@ private fun ServerDropdown(
                     Text("\u21BB  " + stringResource(R.string.ui_servers_update), color = c.text, fontSize = 15.sp, fontWeight = FontWeight.Bold)
                 }
                 Spacer(Modifier.height(8.dp))
-                Column(Modifier.heightIn(max = 460.dp).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Column(Modifier.heightIn(max = (androidx.compose.ui.platform.LocalConfiguration.current.screenHeightDp - 230).coerceAtLeast(240).dp).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     ServerRowItem(c, stringResource(R.string.ui_servers_auto), !manualSelection, null) { onSelect(null); open = false }
                     servers.forEach { sv ->
                         ServerRowItem(c, sv.name, manualSelection && sv.guid == selectedGuid, latencies[sv.guid]) { onSelect(sv.guid); open = false }
