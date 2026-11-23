@@ -13,8 +13,8 @@ android {
         applicationId = "com.gsmshield.vpn"
         minSdk = 29
         targetSdk = 37
-        versionCode = 757
-        versionName = (project.findProperty("pattngVersion") as? String)?.takeIf { it.isNotBlank() } ?: "2.3.17"
+        versionCode = 758
+        versionName = (project.findProperty("pattngVersion") as? String)?.takeIf { it.isNotBlank() } ?: "2.3.18"
 
         val abiFilterList = (properties["ABI_FILTERS"] as? String)?.split(';')
         splits {

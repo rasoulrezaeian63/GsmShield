@@ -4,6 +4,8 @@ import android.content.Context
 import androidx.work.Constraints
 import androidx.work.CoroutineWorker
 import androidx.work.ExistingPeriodicWorkPolicy
+import androidx.work.ExistingWorkPolicy
+import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.NetworkType
 import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
@@ -43,6 +45,11 @@ object WatrayUpdater {
             .setConstraints(Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build())
             .build()
         WorkManager.getInstance(context).enqueueUniquePeriodicWork(WORK_NAME, ExistingPeriodicWorkPolicy.KEEP, req)
+        // Also refresh right away on every app start, so the list is current without a manual update
+        val now = OneTimeWorkRequestBuilder<Worker>()
+            .setConstraints(Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build())
+            .build()
+        WorkManager.getInstance(context).enqueueUniqueWork(WORK_NAME + "_now", ExistingWorkPolicy.REPLACE, now)
     }
 
     /** Downloads the list and rewrites the Watray rows. Blocking: call off the main thread. True on success. */
