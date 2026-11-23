@@ -1,6 +1,7 @@
 package com.v2ray.ang.core
 
 import android.content.Context
+import com.v2ray.ang.AngApplication
 import com.v2ray.ang.AppConfig
 import com.v2ray.ang.dto.entities.ProfileItem
 import com.v2ray.ang.enums.EConfigType
@@ -154,7 +155,26 @@ object WaterwallCoreManager {
     }
 
     private val serverAddressRegex = Regex("\"server_address\"\\s*:\\s*\"([^\"]+)\"")
-    private val lastKnownIp = java.util.concurrent.ConcurrentHashMap<String, String>()
+    private val lastKnownIp = object {
+        private val mem = java.util.concurrent.ConcurrentHashMap<String, String>()
+
+        // The UI process warms the cache, the VPN service runs in another process (:daemon): a file is shared by both.
+        private fun file(host: String) = File(File(AngApplication.application.filesDir, ASSET_DIR).apply { mkdirs() }, "ip_" + host.replace(Regex("[^A-Za-z0-9.-]"), "_"))
+
+        operator fun get(host: String): String? = mem[host] ?: try {
+            file(host).takeIf { it.exists() }?.readText()?.trim()?.takeIf { it.isNotEmpty() }?.also { mem[host] = it }
+        } catch (_: Exception) {
+            null
+        }
+
+        operator fun set(host: String, ip: String) {
+            mem[host] = ip
+            try {
+                file(host).writeText(ip)
+            } catch (_: Exception) {
+            }
+        }
+    }
 
     private fun lookup(host: String): String? = try {
         val all = java.net.InetAddress.getAllByName(host)
@@ -219,9 +239,13 @@ object WaterwallCoreManager {
 
     /** Polls [isListening] until the core answers or [budgetMs] runs out. */
     fun awaitListening(budgetMs: Long = 30_000L): Boolean {
-        val deadline = System.currentTimeMillis() + budgetMs
+        val began = System.currentTimeMillis()
+        val deadline = began + budgetMs
         while (System.currentTimeMillis() < deadline) {
-            if (isListening()) return true
+            if (isListening()) {
+                LogUtil.i(AppConfig.TAG, "Waterwall: listening after ${System.currentTimeMillis() - began} ms")
+                return true
+            }
             if (process?.isAlive == false) {
                 LogUtil.w(AppConfig.TAG, "Waterwall: exited with ${process?.exitValue()} before listening")
                 Thread.sleep(200) // let the log thread drain the last lines

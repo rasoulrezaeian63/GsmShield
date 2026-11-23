@@ -238,6 +238,7 @@ object PhonixPolicy {
         // The Watray row is always there: created (idempotent) before the list is read, no manual add needed
         com.v2ray.ang.core.WaterwallCoreManager.ensureProfile()
         return (serverCandidates() + watrayCandidates()).map { (guid, profile) -> ServerRow(guid, profile.remarks.trim()) }
+            .distinctBy { it.name }
     }
 
     /** The manually added "Watray Netherlands" profile (ungrouped). Only ever picked by hand, never at random. */

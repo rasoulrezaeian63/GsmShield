@@ -53,6 +53,7 @@ object WatrayUpdater {
     }
 
     /** Downloads the list and rewrites the Watray rows. Blocking: call off the main thread. True on success. */
+    @Synchronized
     fun updateNow(): Boolean {
         val link = url()
         if (link.isBlank()) return false
@@ -96,10 +97,14 @@ object WatrayUpdater {
         null
     }
 
+    @Synchronized
     private fun syncProfiles(kept: JSONObject) {
         val existing = MmkvManager.decodeServerList("").mapNotNull { g ->
             MmkvManager.decodeServerConfig(g)?.takeIf { WaterwallCoreManager.isWatray(it) }?.let { g to it }
         }
+        // Same-name rows (left by two refreshes running at once) are collapsed to the first one.
+        val seen = HashSet<String>()
+        existing.filter { (_, p) -> !seen.add(p.remarks.trim()) }.forEach { (g, _) -> MmkvManager.removeServer(g) }
         // Rows of servers the panel dropped (never the bundled default) are removed.
         existing.filter { (_, p) -> p.remarks != WaterwallCoreManager.NAME && !kept.has(p.remarks.trim()) }
             .forEach { (g, _) -> MmkvManager.removeServer(g) }
