@@ -245,7 +245,7 @@ class MainActivity : HelperBaseComponentActivity() {
                 if (uiState.isRunning) {
                     var attempt = 0
                     while (livePing <= 0L && attempt < 6) {
-                        kotlinx.coroutines.delay(if (attempt == 0) 2000L else 4000L)
+                        kotlinx.coroutines.delay(if (attempt == 0) 0L else 4000L)
                         if (!mainViewModel.uiState.value.isRunning) break
                         mainViewModel.testCurrentServerRealPing()
                         attempt++
