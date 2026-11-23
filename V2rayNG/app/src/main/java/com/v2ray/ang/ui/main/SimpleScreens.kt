@@ -554,7 +554,7 @@ private fun ConnectionTab(
             c = c,
             on = isRunning,
             ready = pingOk,
-            busy = isStarting || (isRunning && !pingOk),
+            busy = isRunning && !pingOk,
             enabled = !preparing,
             onClick = onToggle,
         )
