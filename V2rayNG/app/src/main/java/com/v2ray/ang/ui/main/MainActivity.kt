@@ -161,6 +161,10 @@ class MainActivity : HelperBaseComponentActivity() {
             val setupState by PhonixProvisioner.setupState.collectAsStateWithLifecycle()
             var scanning by remember { mutableStateOf(false) }
             var serversRevision by remember { mutableIntStateOf(0) }
+            // The update popup: asked once when the screen opens; dismissed by the user
+            var updateInfo by remember { mutableStateOf<com.v2ray.ang.handler.AppUpdateNotifier.Info?>(null) }
+            LaunchedEffect(Unit) { updateInfo = com.v2ray.ang.handler.AppUpdateNotifier.check() }
+            updateInfo?.let { info -> UpdatePopup(info) { updateInfo = null } }
             // The pick comes from the screen and the service: the list is read again then
             val servers = remember(uiState.groups, uiState.selectedGuid, uiState.isRunning, setupState, serversRevision) {
                 PhonixPolicy.serverRows()

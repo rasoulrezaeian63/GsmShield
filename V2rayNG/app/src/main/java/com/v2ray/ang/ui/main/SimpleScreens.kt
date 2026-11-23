@@ -597,6 +597,8 @@ private fun ConnectionTab(
             )
         }
         Spacer(Modifier.weight(1f))
+        PromoBanner()
+        Spacer(Modifier.height(12.dp))
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(14.dp)) {
             SpeedCard(c, R.drawable.ic_arrow_up_24dp, stringResource(R.string.ui_home_upload), uploadSpeed, Modifier.weight(1f))
             SpeedCard(c, R.drawable.ic_arrow_down_24dp, stringResource(R.string.ui_home_download), downloadSpeed, Modifier.weight(1f))
