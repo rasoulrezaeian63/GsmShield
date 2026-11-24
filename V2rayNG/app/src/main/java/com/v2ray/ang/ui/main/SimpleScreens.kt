@@ -555,9 +555,9 @@ private fun ConnectionTab(
             c = c,
             on = isRunning,
             ready = pingOk,
-            busy = isRunning && !pingOk,
+            busyIn = isRunning && !pingOk,
             enabled = !preparing,
-            onClick = onToggle,
+            onClickIn = onToggle,
         )
         Spacer(Modifier.height(16.dp))
         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -729,7 +729,21 @@ private fun SpeedCard(c: UiColors, icon: Int, label: String, bytesPerSecond: Lon
 
 /** The big round power button with a purple-to-blue ring, as in the reference design. */
 @Composable
-private fun PowerButton(c: UiColors, on: Boolean, ready: Boolean, busy: Boolean, enabled: Boolean, onClick: () -> Unit) {
+private fun PowerButton(c: UiColors, on: Boolean, ready: Boolean, busyIn: Boolean, enabled: Boolean, onClickIn: () -> Unit) {
+    // The ring starts at the tap, not when the service reports running; the real work runs in the background.
+    var connecting by remember { mutableStateOf(false) }
+    LaunchedEffect(connecting) {
+        if (connecting) {
+            kotlinx.coroutines.delay(45_000)
+            connecting = false
+        }
+    }
+    LaunchedEffect(ready) { if (ready) connecting = false }
+    val busy = busyIn || connecting
+    val onClick: () -> Unit = {
+        connecting = !(on || connecting)
+        onClickIn()
+    }
     val ring = Brush.linearGradient(listOf(Color(0xFFE3C35A), Color(0xFF22C55E)))
     val greenRing = Brush.linearGradient(listOf(Color(0xFF22C55E), Color(0xFF16A34A)))
     val progress = remember { androidx.compose.animation.core.Animatable(0f) }
