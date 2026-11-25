@@ -82,6 +82,13 @@ object WatrayUpdater {
             val kept = JSONObject()
             for (i in 0 until arr.length()) {
                 val s = arr.getJSONObject(i)
+                // Inline form: the server entry itself holds "nodes" (full WaterWall config).
+                if (s.has("nodes") && !s.has("config")) {
+                    val ns = s.getJSONArray("nodes")
+                    val addr = ns.getJSONObject(ns.length() - 1).optJSONObject("settings")?.optString("address").orEmpty()
+                    s.put("address", addr.ifBlank { "config" })
+                    s.put("config", JSONObject().put("nodes", ns))
+                }
                 val name = s.optString("name").trim()
                 if (name.isEmpty() || s.optString("address").isBlank()) continue
                 kept.put(PREFIX + name, s)
