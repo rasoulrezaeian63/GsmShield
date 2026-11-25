@@ -13,7 +13,7 @@ import java.io.File
  * Runs the bundled WaterWall core (libwaterwall.so) for the "Watray" profile. Xray owns the TUN
  * and dials a SOCKS outbound to the core's listener on [PORT]; the core's own upstream sockets are
  * excluded from the VPN because the app itself is a disallowed application.
- * Only arm64-v8a is bundled.
+ * arm64-v8a and armeabi-v7a are bundled; Android extracts the one matching the device.
  */
 object WaterwallCoreManager {
     const val NAME = "Watray \uD83C\uDDF3\uD83C\uDDF1"
@@ -134,6 +134,20 @@ object WaterwallCoreManager {
     private fun applyRemoteServer(configFile: File, profile: ProfileItem?) {
         val s = profile?.let { com.v2ray.ang.handler.WatrayUpdater.serverFor(it.remarks) } ?: return
         try {
+            // A full WaterWall config from the panel replaces the bundled one; only the listener is forced to our port.
+            val full = s.opt("config")
+            if (full != null) {
+                val cfg = if (full is org.json.JSONObject) full else org.json.JSONObject(full.toString())
+                val nodes = cfg.getJSONArray("nodes")
+                for (i in 0 until nodes.length()) {
+                    val n = nodes.getJSONObject(i)
+                    if (n.optString("type") == "TcpUdpListener") {
+                        n.getJSONObject("settings").put("address", AppConfig.LOOPBACK).put("port", PORT)
+                    }
+                }
+                configFile.writeText(cfg.toString(2))
+                return
+            }
             var text = configFile.readText()
             fun set(key: String, value: String) {
                 text = text.replace(Regex("\"$key\"\\s*:\\s*(\"[^\"]*\"|\\d+)")) { "\"$key\": $value" }

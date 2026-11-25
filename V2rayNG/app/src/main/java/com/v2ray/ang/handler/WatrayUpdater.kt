@@ -69,7 +69,16 @@ object WatrayUpdater {
             } finally {
                 conn.disconnect()
             }
-            val arr = JSONObject(body).getJSONArray("servers")
+            val root = JSONObject(body)
+            val arr = if (root.has("nodes")) {
+                // A bare WaterWall config pasted on the host: one server, the config is used as is.
+                val last = root.getJSONArray("nodes").let { it.getJSONObject(it.length() - 1) }
+                org.json.JSONArray().put(JSONObject().apply {
+                    put("name", root.optString("remarks").ifBlank { "VLESS" })
+                    put("address", last.optJSONObject("settings")?.optString("address").orEmpty().ifBlank { "config" })
+                    put("config", root)
+                })
+            } else root.getJSONArray("servers")
             val kept = JSONObject()
             for (i in 0 until arr.length()) {
                 val s = arr.getJSONObject(i)

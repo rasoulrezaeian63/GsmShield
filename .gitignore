@@ -76,6 +76,4 @@ V2rayNG/app/src/main/assets/psiphon_servers.stamp
 # Only the Termux/dev copies under other folders stay ignored.
 /waterwall/
 !V2rayNG/app/src/main/jniLibs/arm64-v8a/libwaterwall.so
-
-*.jks
-*.b64
+!V2rayNG/app/src/main/jniLibs/armeabi-v7a/libwaterwall.so
