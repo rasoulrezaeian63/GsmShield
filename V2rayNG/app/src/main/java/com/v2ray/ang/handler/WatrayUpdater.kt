@@ -76,7 +76,7 @@ object WatrayUpdater {
                 org.json.JSONArray().put(JSONObject().apply {
                     put("name", root.optString("remarks").ifBlank { "VLESS" })
                     put("address", last.optJSONObject("settings")?.optString("address").orEmpty().ifBlank { "config" })
-                    put("config", root)
+                    put("config", root.apply { if (!has("name")) put("name", "custom") })
                 })
             } else root.getJSONArray("servers")
             val kept = JSONObject()
@@ -87,7 +87,7 @@ object WatrayUpdater {
                     val ns = s.getJSONArray("nodes")
                     val addr = ns.getJSONObject(ns.length() - 1).optJSONObject("settings")?.optString("address").orEmpty()
                     s.put("address", addr.ifBlank { "config" })
-                    s.put("config", JSONObject().put("nodes", ns))
+                    s.put("config", JSONObject().put("name", s.optString("name").trim().ifEmpty { "custom" }).put("nodes", ns))
                 }
                 val name = s.optString("name").trim()
                 if (name.isEmpty() || s.optString("address").isBlank()) continue

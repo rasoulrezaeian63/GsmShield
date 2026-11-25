@@ -139,6 +139,7 @@ object WaterwallCoreManager {
             if (full != null) {
                 val cfg = if (full is org.json.JSONObject) full else org.json.JSONObject(full.toString())
                 val nodes = cfg.getJSONArray("nodes")
+                if (!cfg.has("name")) cfg.put("name", "custom")
                 for (i in 0 until nodes.length()) {
                     val n = nodes.getJSONObject(i)
                     if (n.optString("type") == "TcpUdpListener") {
