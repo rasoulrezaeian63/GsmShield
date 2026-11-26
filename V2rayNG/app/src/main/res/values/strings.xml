@@ -671,6 +671,7 @@
     <string name="watray_start_failed">The Watray core could not start: %1$s</string>
     <string name="aether_unsupported_abi">The Aether core is not available for this device</string>
     <string name="aether_core_stopped">The Aether core stopped running</string>
+    <string name="aether_core_stopped_stale_keys">The Aether core kept being rejected, so the app renewed its keys. Connect again.</string>
     <string name="aether_core_stopped_no_ech_key">The Aether core stopped: ECH is on, but no usable ECH key was found. Without one, the server name would have gone out in the clear.</string>
     <string name="aether_core_stopped_chain_ended">Tor or Psiphon inside the Aether tunnel ended, so the connection was stopped: %1$s</string>
     <string name="aether_core_connecting">GsmShield is connecting</string>

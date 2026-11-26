@@ -12,6 +12,7 @@ import com.v2ray.ang.dto.V2rayConfig
 import com.v2ray.ang.dto.entities.ProfileItem
 import com.v2ray.ang.enums.AetherFingerprint
 import com.v2ray.ang.enums.AetherIpVersion
+import com.v2ray.ang.enums.AetherKeyKind
 import com.v2ray.ang.enums.AetherObfuscation
 import com.v2ray.ang.enums.AetherProtocol
 import com.v2ray.ang.enums.AetherPsiphon
@@ -291,6 +292,7 @@ object AetherCoreManager {
     /** Whether the session core that ended on its own last stopped for want of an ECH key; see [stoppedMessage]. */
     @Volatile
     private var stoppedForEchKey = false
+    private var stoppedForStaleKeys = false
 
     /**
      * The core's words that Tor or Psiphon inside the tunnel had ended, when that is why the app ended the session
@@ -989,6 +991,7 @@ object AetherCoreManager {
         )
         session = next
         stoppedForEchKey = false
+        stoppedForStaleKeys = false
         stoppedChainEnd = null
         lifecycle.execute { open(next, appContext, arguments, afterProbes, core.exit.key) }
     }
@@ -1035,18 +1038,20 @@ object AetherCoreManager {
     /** What to tell the user of the session core that ended on its own last, or was ended for it, in the words it ended with. */
     fun stoppedMessage(context: Context): String {
         val chainEnd = stoppedChainEnd
-        val message = stoppedMessage(stoppedForEchKey, chainEnded = chainEnd != null)
+        val message = stoppedMessage(stoppedForEchKey, stoppedForStaleKeys, chainEnded = chainEnd != null)
         return if (chainEnd != null) context.getString(message, chainEnd) else context.getString(message)
     }
 
     /**
-     * What to tell the user of a session core that ended, with [noEchKey] when it ended for want of an ECH key, and
-     * [chainEnded] when the app ended it as Tor or Psiphon inside the tunnel had ended; that message takes the core's
-     * words, see [chainEndWords].
+     * What to tell the user of a session core that ended, with [noEchKey] when it ended for want of an ECH key,
+     * [staleKeys] when repeated key rejections caused the app to end it and renew the keys, and [chainEnded] when
+     * the app ended it as Tor or Psiphon inside the tunnel had ended; that message takes the core's words,
+     * see [chainEndWords].
      */
     @StringRes
-    internal fun stoppedMessage(noEchKey: Boolean, chainEnded: Boolean = false): Int = when {
+    internal fun stoppedMessage(noEchKey: Boolean, staleKeys: Boolean = false, chainEnded: Boolean = false): Int = when {
         chainEnded -> R.string.aether_core_stopped_chain_ended
+        staleKeys -> R.string.aether_core_stopped_stale_keys
         noEchKey -> R.string.aether_core_stopped_no_ech_key
         else -> R.string.aether_core_stopped
     }
@@ -1689,12 +1694,24 @@ object AetherCoreManager {
         }
     }
 
+    private val staleKeyWord = Regex("status 400|gateway no longer responds", RegexOption.IGNORE_CASE)
+    private const val STALE_KEY_THRESHOLD = 3
+
     private fun watch(target: Session, process: Process) {
         try {
             process.inputStream.bufferedReader().forEachLine { line ->
                 relay(line, "aether")
                 if (!target.wordSeen && isReadyWord(line)) target.wordSeen = true
                 if (isNoEchKeyWord(line)) target.noEchKey = true
+                // Repeated rejections mean the stored keys are stale: end the core, and renew the keys once it is gone.
+                if (!target.staleKeys && session === target && staleKeyWord.containsMatchIn(line) &&
+                    ++target.staleCount >= STALE_KEY_THRESHOLD
+                ) {
+                    target.staleKeys = true
+                    LogUtil.w(AppConfig.TAG, "AetherCore: ${target.staleCount} key rejections in a row, ending the core to renew the keys")
+                    process.destroy()
+                }
+                if (isReadyWord(line)) target.staleCount = 0
                 // A core the app stopped, or one a new start replaced, is no longer the session's to end.
                 if (target.chainEnd == null && session === target) {
                     chainEndWords(line, target.arguments)?.let { words ->
@@ -1712,7 +1729,21 @@ object AetherCoreManager {
         val exitCode = process.waitFor()
         if (!release(target)) return
         reapOrphans(target.context)
-        if (target.chainEnd != null) {
+        if (target.staleKeys) {
+            LogUtil.w(AppConfig.TAG, "AetherCore: renewing the keys after repeated rejections")
+            try {
+                val settings = AetherKeysSettings(kind = AetherKeyKind.MASQUE)
+                val arguments = AetherKeys.runArguments(settings)
+                val kind = AetherKeys.kindOf(arguments)
+                if (kind != null) {
+                    kotlinx.coroutines.runBlocking {
+                        AetherIdentityManager.renew(target.context, kind, arguments, settings.exit) { }
+                    }
+                }
+            } catch (e: Exception) {
+                LogUtil.e(AppConfig.TAG, "AetherCore: renewing the keys failed: ${e.message}")
+            }
+        } else if (target.chainEnd != null) {
             LogUtil.e(AppConfig.TAG, "AetherCore: the core was ended with code $exitCode, Tor or Psiphon inside the tunnel had ended")
         } else {
             LogUtil.e(AppConfig.TAG, "AetherCore: the core exited on its own with code $exitCode")
@@ -1726,6 +1757,7 @@ object AetherCoreManager {
         // Set before the session goes and the exit is reported, which reads them: the warm-up wait reports the exit
         // too, as soon as it sees no session. The core has written its last line by now.
         stoppedForEchKey = target.noEchKey
+        stoppedForStaleKeys = target.staleKeys
         stoppedChainEnd = target.chainEnd
         session = null
         return true
@@ -1754,5 +1786,13 @@ object AetherCoreManager {
         /** The core's words that Tor or Psiphon inside the tunnel had ended, for which the app ended it; see [chainEndWords]. */
         @Volatile
         var chainEnd: String? = null
+
+        /** Count of key-rejection lines since the core last said it was ready; see [staleKeyWord]. */
+        @Volatile
+        var staleCount: Int = 0
+
+        /** Whether the app ended the core for repeated key rejections. */
+        @Volatile
+        var staleKeys: Boolean = false
     }
 }
